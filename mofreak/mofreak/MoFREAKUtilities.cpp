@@ -374,6 +374,12 @@ bool MoFREAKUtilities::sufficientMotion(cv::Mat &diff_integral_img, float &x, fl
 
 void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::string mofreak_filename, bool clear_features_after_computation)
 {
+	clock_t start_diff, duration_diff=0;
+	clock_t start_detector, duration_detector=0;
+	clock_t start_extractor, duration_extractor=0;
+	clock_t start_suff, duration_suff=0;
+	clock_t start_appearance, duration_appearance=0;
+	clock_t start_MIP, duration_MIP=0;
 	std::string debug_filename = video_filename;
 	// ignore the first frames because we can't compute the frame difference with them.
 	const int GAP_FOR_FRAME_DIFFERENCE = 5;
@@ -413,7 +419,9 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 
 		// compute the difference image for use in later computations.
 		cv::Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
+		start_diff = clock();
 		cv::absdiff(current_frame, prev_frame, diff_img);
+		duration_diff += clock()-start_diff;
 
 		vector<cv::KeyPoint> keypoints, diff_keypoints;
 		cv::Mat descriptors;
@@ -423,13 +431,17 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		cv::BriskFeatureDetector *diff_detector = new cv::BriskFeatureDetector(30); // modified craig 2013.10.20
 
 		//detector->detect(current_frame, keypoints);
+		start_detector = clock();
 		diff_detector->detect(diff_img, keypoints); // modified craig 2013.10.20
+		duration_detector += clock()-start_detector;
 		//FAST(diff_img, keypoints, 60);
 
 		// extract the FREAK descriptors efficiently over the whole frame
 		// For now, we are just computing the motion FREAK!  It seems to be giving better results.
 		cv::FREAK extractor;
+		start_extractor = clock();
 		extractor.compute(diff_img, keypoints, descriptors);
+		duration_extractor += clock()-start_extractor;
 		//cout << "--------------------------------" << keypoints.size() << " detected features" << endl;
 		
 
@@ -444,7 +456,11 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 			// only take points with sufficient motion.
 			int motion = 0;
 			
-			if (sufficientMotion(current_frame, prev_frame, keypt->pt.x, keypt->pt.y, keypt->size))
+			start_suff = clock();
+			bool suff = sufficientMotion(current_frame, prev_frame, keypt->pt.x, keypt->pt.y, keypt->size);
+			duration_suff += clock()-start_suff;
+
+			if (suff)
 			{
 				//cout << "feature: motion bytes: " << NUMBER_OF_BYTES_FOR_MOTION << endl;
 				//cout << "feature: app bytes: " << NUMBER_OF_BYTES_FOR_APPEARANCE << endl;
@@ -454,19 +470,24 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 				ftr.x = keypt->pt.x;
 				ftr.y = keypt->pt.y;
 
+				start_appearance = clock();
 				for (unsigned i = 0; i < NUMBER_OF_BYTES_FOR_APPEARANCE; ++i)
 				{
 					ftr.appearance[i] = pointer_to_descriptor_row[i];
 				}
+				duration_appearance += clock()-start_appearance;
 
 				// MIP
 				vector<unsigned int> motion_desc;
+				
+				start_MIP = clock();
 				extractMotionByMotionInterchangePatterns(current_frame, prev_frame, motion_desc, keypt->size, keypt->pt.x, keypt->pt.y);
 
 				for (unsigned i = 0; i < NUMBER_OF_BYTES_FOR_MOTION; ++i)
 				{
 					ftr.motion[i] = motion_desc[i];
 				}
+				duration_MIP  = clock()-start_MIP;
 
 				// gather metadata.
 				int action, person, video_number;
@@ -498,6 +519,13 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 
 	if (clear_features_after_computation)
 		features.clear();
+	
+	cout << "#diff image: " << duration_diff/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
+	cout << "#detector: " << duration_detector/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
+	cout << "#extractor: " << duration_extractor/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
+	cout << "#suff: " << duration_suff/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
+	cout << "#appearance: " << duration_appearance/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
+	cout << "#MIP: " << duration_MIP/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
 
 }
 

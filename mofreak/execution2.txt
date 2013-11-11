@@ -1,0 +1,299 @@
+#suff: 0.276 seconds!
+
+#appearance: 0.001 seconds!
+
+#MIP: 0.001 seconds!
+
+action: walking
+action video path: D:/project/action/dataset/test/walking
+filename: person02_walking_d1_uncomp.avi
+AVI: D:/project/action/dataset/test/walkingperson02_walking_d1_uncomp.avi
+mofreak path: D:/project/action/dataset/mofreak/walking/person02_walking_d1_unco
+mp.avi.mofreak
+# of frames: 450
+Writing this mofreak file: D:/project/action/dataset/mofreak/walking/person02_wa
+lking_d1_uncomp.avi.mofreak
+#diff image: 0.022 seconds!
+
+#detector: 1.234 seconds!
+
+#extractor: 31.465 seconds!
+
+#suff: 0.284 seconds!
+
+#appearance: 0.002 seconds!
+
+#MIP: 0.001 seconds!
+
+filename: person02_walking_d2_uncomp.avi
+AVI: D:/project/action/dataset/test/walkingperson02_walking_d2_uncomp.avi
+mofreak path: D:/project/action/dataset/mofreak/walking/person02_walking_d2_unco
+mp.avi.mofreak
+# of frames: 1060
+Writing this mofreak file: D:/project/action/dataset/mofreak/walking/person02_wa
+lking_d2_uncomp.avi.mofreak
+#diff image: 0.038 seconds!
+
+#detector: 2.624 seconds!
+
+#extractor: 76.043 seconds!
+
+#suff: 0.552 seconds!
+
+#appearance: 0.001 seconds!
+
+#MIP: 0.001 seconds!
+
+filename: person03_walking_d1_uncomp.avi
+AVI: D:/project/action/dataset/test/walkingperson03_walking_d1_uncomp.avi
+mofreak path: D:/project/action/dataset/mofreak/walking/person03_walking_d1_unco
+mp.avi.mofreak
+# of frames: 640
+Writing this mofreak file: D:/project/action/dataset/mofreak/walking/person03_wa
+lking_d1_uncomp.avi.mofreak
+#diff image: 0.019 seconds!
+
+#detector: 1.548 seconds!
+
+#extractor: 43.616 seconds!
+
+#suff: 0.563 seconds!
+
+#appearance: 0.002 seconds!
+
+#MIP: 0.001 seconds!
+
+filename: person03_walking_d2_uncomp.avi
+AVI: D:/project/action/dataset/test/walkingperson03_walking_d2_uncomp.avi
+mofreak path: D:/project/action/dataset/mofreak/walking/person03_walking_d2_unco
+mp.avi.mofreak
+# of frames: 960
+Writing this mofreak file: D:/project/action/dataset/mofreak/walking/person03_wa
+lking_d2_uncomp.avi.mofreak
+#diff image: 0.033 seconds!
+
+#detector: 2.23 seconds!
+
+#extractor: 73.444 seconds!
+
+#suff: 0.596 seconds!
+
+#appearance: 0.004 seconds!
+
+#MIP: 0.001 seconds!
+
+filename: person04_walking_d1_uncomp.avi
+AVI: D:/project/action/dataset/test/walkingperson04_walking_d1_uncomp.avi
+mofreak path: D:/project/action/dataset/mofreak/walking/person04_walking_d1_unco
+mp.avi.mofreak
+# of frames: 470
+Writing this mofreak file: D:/project/action/dataset/mofreak/walking/person04_wa
+lking_d1_uncomp.avi.mofreak
+#diff image: 0.01 seconds!
+
+#detector: 1.498 seconds!
+
+#extractor: 32.103 seconds!
+
+#suff: 0.532 seconds!
+
+#appearance: 0.002 seconds!
+
+#MIP: 0 seconds!
+
+filename: person04_walking_d2_uncomp.avi
+AVI: D:/project/action/dataset/test/walkingperson04_walking_d2_uncomp.avi
+mofreak path: D:/project/action/dataset/mofreak/walking/person04_walking_d2_unco
+mp.avi.mofreak
+# of frames: 840
+Writing this mofreak file: D:/project/action/dataset/mofreak/walking/person04_wa
+lking_d2_uncomp.avi.mofreak
+#diff image: 0.036 seconds!
+
+#detector: 2.459 seconds!
+
+#extractor: 65.361 seconds!
+
+#suff: 1.151 seconds!
+
+#appearance: 0.004 seconds!
+
+#MIP: 0 seconds!
+
+filename: person05_walking_d1_uncomp.avi
+AVI: D:/project/action/dataset/test/walkingperson05_walking_d1_uncomp.avi
+mofreak path: D:/project/action/dataset/mofreak/walking/person05_walking_d1_unco
+mp.avi.mofreak
+# of frames: 535
+Writing this mofreak file: D:/project/action/dataset/mofreak/walking/person05_wa
+lking_d1_uncomp.avi.mofreak
+#diff image: 0.018 seconds!
+
+#detector: 1.49 seconds!
+
+#extractor: 35.132 seconds!
+
+#suff: 0.45 seconds!
+
+#appearance: 0.003 seconds!
+
+#MIP: 0 seconds!
+
+filename: person05_walking_d2_uncomp.avi
+AVI: D:/project/action/dataset/test/walkingperson05_walking_d2_uncomp.avi
+mofreak path: D:/project/action/dataset/mofreak/walking/person05_walking_d2_unco
+mp.avi.mofreak
+# of frames: 675
+Writing this mofreak file: D:/project/action/dataset/mofreak/walking/person05_wa
+lking_d2_uncomp.avi.mofreak
+#diff image: 0.036 seconds!
+
+#detector: 1.844 seconds!
+
+#extractor: 44.827 seconds!
+
+#suff: 0.781 seconds!
+
+#appearance: 0.003 seconds!
+
+#MIP: 0.001 seconds!
+
+#MoFREAK construction: 2619.24 seconds!
+
+Gathering MoFREAK Features...
+action: boxing
+Building data.
+allocating data_pts in builddatafrommofreaK: 41712
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:0
+action: handclapping
+Building data.
+allocating data_pts in builddatafrommofreaK: 50000
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:100
+action: handwaving
+Building data.
+allocating data_pts in builddatafrommofreaK: 48980
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:200
+action: jogging
+Building data.
+allocating data_pts in builddatafrommofreaK: 22037
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:300
+action: running
+Building data.
+allocating data_pts in builddatafrommofreaK: 20887
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:400
+action: walking
+Building data.
+allocating data_pts in builddatafrommofreaK: 32428
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:500
+writing
+#clustering: 246.213 seconds!
+
+Gathering MoFREAK files from D:/project/action/dataset/mofreak
+action: boxing
+action: handclapping
+action: handwaving
+action: jogging
+action: running
+action: walking
+number of training features: 48
+number of testing features: 0
+number of training features: 36
+number of testing features: 12
+number of training features: 36
+number of testing features: 12
+number of training features: 36
+number of testing features: 12
+number of training features: 36
+number of testing features: 12
+number of training features: 48
+number of testing features: 0
+Finished writing to cross-validation files.
+Closed all cross-validation files.
+Completed printing bag-of-words representation to files
+#compute BOW: 1010.79 seconds!
+
+in eval
+Eval SVM...
+New loop iteration
+Cross validation set 1
+training model
+Model trained.
+deleting.. error msg
+Accuracy = -1.#IND% (0/0) (classification)
+New loop iteration
+Cross validation set 2
+training model
+Model trained.
+deleting.. error msg
+Accuracy = 75% (9/12) (classification)
+New loop iteration
+Cross validation set 3
+training model
+Model trained.
+deleting.. error msg
+Accuracy = 83.3333% (10/12) (classification)
+New loop iteration
+Cross validation set 4
+training model
+Model trained.
+deleting.. error msg
+Accuracy = 50% (6/12) (classification)
+New loop iteration
+Cross validation set 5
+training model
+Model trained.
+deleting.. error msg
+Accuracy = 50% (6/12) (classification)
+New loop iteration
+Cross validation set 6
+training model
+Model trained.
+deleting.. error msg
+Accuracy = -1.#IND% (0/0) (classification)
+Confusion matrix
+---------------------
+0.5, 0.125, 0.25, 0, 0, 0.125,
+
+0, 0.875, 0.125, 0, 0, 0,
+
+0, 0.125, 0.75, 0, 0, 0.125,
+
+0, 0, 0, 0.375, 0.125, 0.5,
+
+0, 0, 0, 0.25, 0.5, 0.25,
+
+0, 0, 0, 0.125, 0, 0.875,
+
+Averaged accuracy: -1.#IND%
+#classify: 1.785 seconds!
+
+deleting mofreak...
+deleted
+Took this long: 1258.8 seconds!
+All done.  Press any key to continue...
+Dumping memory leak info
+請按任意鍵繼續 . . .

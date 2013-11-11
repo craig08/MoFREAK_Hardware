@@ -944,9 +944,9 @@ void main()
 	else if (state == DETECTION_TO_CLASSIFICATION)
 	{
 		start = clock();
-		//computeMoFREAKFiles();
+		computeMoFREAKFiles();
 		end = clock();
-		cout << "MoFREAK construction: " << (end - start)/(double)CLOCKS_PER_SEC << " seconds! " << endl;
+		cout << "#MoFREAK construction: " << (end - start)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
 
 		start = clock();
 
@@ -960,9 +960,21 @@ void main()
 		
 		else if (dataset == KTH || dataset == UTI2 || dataset == UCF101)
 		{
+			clock_t start1 = clock();
 			cluster();
+			clock_t end1 = clock();
+			cout << "#clustering: " << (end1 - start1)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
+			
+			start1 = clock();
 			computeBOWRepresentation();
+			end1 = clock();
+			cout << "#compute BOW: " << (end1 - start1)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
+
+			
+			start1 = clock();
 			double avg_acc = classify();
+			end1 = clock();
+			cout << "#classify: " << (end1 - start1)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
 		}
 
 		else if (dataset == HMDB51)
