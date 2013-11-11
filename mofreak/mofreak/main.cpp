@@ -944,7 +944,7 @@ void main()
 	else if (state == DETECTION_TO_CLASSIFICATION)
 	{
 		start = clock();
-		computeMoFREAKFiles();
+		//computeMoFREAKFiles();
 		end = clock();
 		cout << "MoFREAK construction: " << (end - start)/(double)CLOCKS_PER_SEC << " seconds! " << endl;
 

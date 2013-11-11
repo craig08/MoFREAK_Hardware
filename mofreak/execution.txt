@@ -1,0 +1,133 @@
+6*8=48
+MoFREAK construction: 0 seconds!
+Gathering MoFREAK Features...
+action: boxing
+Building data.
+allocating data_pts in builddatafrommofreaK: 41712
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:0
+action: handclapping
+Building data.
+allocating data_pts in builddatafrommofreaK: 50000
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:100
+action: handwaving
+Building data.
+allocating data_pts in builddatafrommofreaK: 48980
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:200
+action: jogging
+Building data.
+allocating data_pts in builddatafrommofreaK: 22037
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:300
+action: running
+Building data.
+allocating data_pts in builddatafrommofreaK: 20887
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:400
+action: walking
+Building data.
+allocating data_pts in builddatafrommofreaK: 32428
+allocated
+converted into matrix of pts
+Random clustering
+Sampling 100
+Current center row:500
+writing
+Gathering MoFREAK files from D:/project/action/dataset/mofreak
+action: boxing
+action: handclapping
+action: handwaving
+action: jogging
+action: running
+action: walking
+number of training features: 48
+number of testing features: 0
+number of training features: 36
+number of testing features: 12
+number of training features: 36
+number of testing features: 12
+number of training features: 36
+number of testing features: 12
+number of training features: 36
+number of testing features: 12
+number of training features: 48
+number of testing features: 0
+Finished writing to cross-validation files.
+Closed all cross-validation files.
+Completed printing bag-of-words representation to files
+in eval
+Eval SVM...
+New loop iteration
+Cross validation set 1
+training model
+Model trained.
+deleting.. error msg
+Accuracy = -1.#IND% (0/0) (classification)
+New loop iteration
+Cross validation set 2
+training model
+Model trained.
+deleting.. error msg
+Accuracy = 75% (9/12) (classification)
+New loop iteration
+Cross validation set 3
+training model
+Model trained.
+deleting.. error msg
+Accuracy = 83.3333% (10/12) (classification)
+New loop iteration
+Cross validation set 4
+training model
+Model trained.
+deleting.. error msg
+Accuracy = 41.6667% (5/12) (classification)
+New loop iteration
+Cross validation set 5
+training model
+Model trained.
+deleting.. error msg
+Accuracy = 50% (6/12) (classification)
+New loop iteration
+Cross validation set 6
+training model
+Model trained.
+deleting.. error msg
+Accuracy = -1.#IND% (0/0) (classification)
+Confusion matrix
+---------------------
+0.5, 0.125, 0.25, 0, 0, 0.125,
+
+0, 0.875, 0.125, 0, 0, 0,
+
+0, 0.125, 0.75, 0, 0, 0.125,
+
+0, 0, 0, 0.375, 0.125, 0.5,
+
+0, 0, 0, 0.125, 0.5, 0.375,
+
+0, 0, 0.125, 0.125, 0, 0.75,
+
+Averaged accuracy: -1.#IND%
+deleting mofreak...
+deleted
+Took this long: 1389.67 seconds!
+All done.  Press any key to continue...
+Dumping memory leak info
+請按任意鍵繼續 . . .
