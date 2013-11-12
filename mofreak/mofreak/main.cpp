@@ -90,7 +90,7 @@ void setParameters()
 	{
 		NUM_CLUSTERS = 600;
 		NUM_CLASSES = 6;
-		NUMBER_OF_GROUPS = 6;
+		NUMBER_OF_GROUPS = 25;
 
 		for (unsigned i = 0; i < NUM_CLASSES; ++i)
 		{
