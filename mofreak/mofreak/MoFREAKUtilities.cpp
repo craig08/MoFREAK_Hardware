@@ -408,12 +408,12 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 
 	unsigned int frame_num = GAP_FOR_FRAME_DIFFERENCE - 1;
 	
-	while (true)
+	//while (true)
 	{
 		capture >> current_frame;
 		if (current_frame.empty())	
 		{
-			break;
+			//break;
 		}
 		cv::cvtColor(current_frame ,current_frame, CV_BGR2GRAY);
 
