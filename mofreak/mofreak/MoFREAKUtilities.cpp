@@ -77,10 +77,10 @@ unsigned int MoFREAKUtilities::motionInterchangePattern(cv::Mat &current_frame, 
 	for (auto it = previous_patches.begin(); it != previous_patches.end(); ++it)
 	{
 		int ssd = 0;
+		uchar *p = patch_t.data;
+		uchar *p2 = it->data;
 		for (int row = 0; row < 3; ++row)
 		{
-			uchar *p = patch_t.data;
-			uchar *p2 = it->data;
 			for (int col = 0; col < 3; ++col)
 			{
 				ssd += (int)pow((float)((*p) - (*p2)), 2);
@@ -422,6 +422,8 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		start_diff = clock();
 		cv::absdiff(current_frame, prev_frame, diff_img);
 		duration_diff += clock()-start_diff;
+		cv::imwrite("D:/project/action/sample_data/current_frame.png", current_frame);
+		cv::imwrite("D:/project/action/sample_data/prev_frame.png", prev_frame);
 		cv::imwrite("D:/project/action/sample_data/diff_img.png", diff_img);
 
 		vector<cv::KeyPoint> keypoints, diff_keypoints;
