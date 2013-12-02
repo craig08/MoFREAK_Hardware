@@ -431,7 +431,8 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		
 		// detect all keypoints.
 		//cv::BriskFeatureDetector *detector = new cv::BriskFeatureDetector(30);
-		cv::BriskFeatureDetector *diff_detector = new cv::BriskFeatureDetector(30); // modified craig 2013.10.20
+		cv::BriskFeatureDetector *diff_detector = new cv::BriskFeatureDetector(30); 
+		//cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
 
 		//detector->detect(current_frame, keypoints);
 		start_detector = clock();

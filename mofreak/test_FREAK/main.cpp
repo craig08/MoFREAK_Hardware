@@ -207,6 +207,7 @@ void computeImpl( const Mat& image, std::vector<KeyPoint>& keypoints, Mat& descr
     DescriptionPair descriptionPairs[NB_PAIRS];
     OrientationPair orientationPairs[NB_ORIENPAIRS];
 
+    /*
 	patternLookup.resize(NB_SCALES*FREAK_NB_ORIENTATION*FREAK_NB_POINTS);
     double scaleStep = pow(2.0, (double)(nOctaves)/NB_SCALES ); // 2 ^ ( (nOctaves-1) /nbScales)
     double scalingFactor, alpha, beta, theta = 0;
@@ -254,7 +255,6 @@ void computeImpl( const Mat& image, std::vector<KeyPoint>& keypoints, Mat& descr
             }
         }
     }
-
     // build the list of orientation pairs
     orientationPairs[0].i=0; orientationPairs[0].j=3; orientationPairs[1].i=1; orientationPairs[1].j=4; orientationPairs[2].i=2; orientationPairs[2].j=5;
     orientationPairs[3].i=0; orientationPairs[3].j=2; orientationPairs[4].i=1; orientationPairs[4].j=3; orientationPairs[5].i=2; orientationPairs[5].j=4;
@@ -295,8 +295,65 @@ void computeImpl( const Mat& image, std::vector<KeyPoint>& keypoints, Mat& descr
     }
     for( int i = 0; i < NB_PAIRS; ++i )
             descriptionPairs[i] = allPairs[FREAK_DEF_PAIRS[i]];
-
-
+    
+    // write pattern
+	ofstream fout("D:/project/action/sample_data/patternLookup");
+	for(auto it=patternLookup.begin(); it!=patternLookup.end(); ++it) 
+		fout << it->x << " " << it->y << " " << it->sigma << endl;
+	fout.close();
+    fout.open("D:/project/action/sample_data/patternSizes");
+	for(int i=0; i<NB_SCALES; ++i) 
+		fout << patternSizes[i] << endl;
+	fout.close();
+    fout.open("D:/project/action/sample_data/orientationPairs");
+	for( int i = 0; i < NB_ORIENPAIRS; ++i) 
+		fout << (int)orientationPairs[i].i << " " << (int)orientationPairs[i].j << " " << orientationPairs[i].weight_dx << " " << orientationPairs[i].weight_dy << endl;
+	fout.close();
+    fout.open("D:/project/action/sample_data/descriptionPairs");
+	for( int i = 0; i < NB_PAIRS; ++i)  
+		fout << (int)descriptionPairs[i].i << " " << (int)descriptionPairs[i].j << endl;
+	fout.close();
+    */    
+    
+    // Read pattern
+	ifstream fin("D:/project/action/sample_data/patternLookup");
+    while(!fin.eof()) {
+        PatternPoint temp;
+        fin >> temp.x >> temp.y >> temp.sigma;
+        patternLookup.push_back(temp);
+    }
+    fin.close();
+    fin.open("D:/project/action/sample_data/patternSizes");
+    int idx = 0;
+    while(!fin.eof())
+        fin >> patternSizes[idx++];
+    fin.close();
+    fin.open("D:/project/action/sample_data/orientationPairs");
+    idx = 0;
+    while(!fin.eof()) {
+        int i, j;
+        fin >> i >> j >> orientationPairs[idx].weight_dx >> orientationPairs[idx].weight_dy;
+        orientationPairs[idx].i = i; 
+        orientationPairs[idx].j = j;
+        if(idx == NB_ORIENPAIRS-1) break;
+        else ++idx;
+    }
+    fin.close();
+    fin.open("D:/project/action/sample_data/descriptionPairs");
+    idx = 0;
+    while(!fin.eof()) {
+        int i, j;
+        fin >> i >> j;
+        descriptionPairs[idx].i = i;
+        descriptionPairs[idx].j = j;
+        if(idx == NB_PAIRS-1) break;
+        else ++idx;
+    }
+    fin.close();
+    
+	// end building pattern
+    
+    
     Mat imgIntegral;
     integral(image, imgIntegral);
     std::vector<int> kpScaleIdx(keypoints.size()); // used to save pattern scale index corresponding to each keypoints
@@ -316,9 +373,9 @@ void computeImpl( const Mat& image, std::vector<KeyPoint>& keypoints, Mat& descr
                 kpScaleIdx[k] = NB_SCALES-1;
 
             if( keypoints[k].pt.x <= patternSizes[kpScaleIdx[k]] || //check if the description at this specific position and scale fits inside the image
-                 keypoints[k].pt.y <= patternSizes[kpScaleIdx[k]] ||
-                 keypoints[k].pt.x >= image.cols-patternSizes[kpScaleIdx[k]] ||
-                 keypoints[k].pt.y >= image.rows-patternSizes[kpScaleIdx[k]]
+                keypoints[k].pt.y <= patternSizes[kpScaleIdx[k]] ||
+                keypoints[k].pt.x >= image.cols-patternSizes[kpScaleIdx[k]] ||
+                keypoints[k].pt.y >= image.rows-patternSizes[kpScaleIdx[k]]
                ) {
                 keypoints.erase(kpBegin+k);
                 kpScaleIdx.erase(ScaleIdxBegin+k);
@@ -331,26 +388,26 @@ void computeImpl( const Mat& image, std::vector<KeyPoint>& keypoints, Mat& descr
         std::bitset<NB_PAIRS>* ptr = (std::bitset<NB_PAIRS>*) (descriptors.data+(keypoints.size()-1)*descriptors.step[0]);
         for( size_t k = keypoints.size(); k--; ) {
             // estimate orientation (gradient)
-                // get the points intensity value in the un-rotated pattern
-                for( int i = FREAK_NB_POINTS; i--; ) {
-                    pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], 0, i, patternLookup);
-                }
-                direction0 = 0;
-                direction1 = 0;
-                for( int m = 45; m--; ) {
-                    //iterate through the orientation pairs
-                    const int delta = (pointsValue[ orientationPairs[m].i ]-pointsValue[ orientationPairs[m].j ]);
-                    direction0 += delta*(orientationPairs[m].weight_dx)/2048;
-                    direction1 += delta*(orientationPairs[m].weight_dy)/2048;
-                }
+            // get the points intensity value in the un-rotated pattern
+            for( int i = FREAK_NB_POINTS; i--; ) {
+                pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], 0, i, patternLookup);
+            }
+            direction0 = 0;
+            direction1 = 0;
+            for( int m = 45; m--; ) {
+                //iterate through the orientation pairs
+                const int delta = (pointsValue[ orientationPairs[m].i ]-pointsValue[ orientationPairs[m].j ]);
+                direction0 += delta*(orientationPairs[m].weight_dx)/2048;
+                direction1 += delta*(orientationPairs[m].weight_dy)/2048;
+            }
 
-                keypoints[k].angle = static_cast<float>(atan2((float)direction1,(float)direction0)*(180.0/CV_PI));//estimate orientation
-                thetaIdx = int(FREAK_NB_ORIENTATION*keypoints[k].angle*(1/360.0)+0.5);
-                if( thetaIdx < 0 )
-                    thetaIdx += FREAK_NB_ORIENTATION;
+            keypoints[k].angle = static_cast<float>(atan2((float)direction1,(float)direction0)*(180.0/CV_PI));//estimate orientation
+            thetaIdx = int(FREAK_NB_ORIENTATION*keypoints[k].angle*(1/360.0)+0.5);
+            if( thetaIdx < 0 )
+                thetaIdx += FREAK_NB_ORIENTATION;
 
-                if( thetaIdx >= FREAK_NB_ORIENTATION )
-                    thetaIdx -= FREAK_NB_ORIENTATION;
+            if( thetaIdx >= FREAK_NB_ORIENTATION )
+                thetaIdx -= FREAK_NB_ORIENTATION;
             // extract descriptor at the computed orientation
             for( int i = FREAK_NB_POINTS; i--; ) {
                 pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], thetaIdx, i, patternLookup);
