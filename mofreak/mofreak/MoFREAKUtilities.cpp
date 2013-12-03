@@ -5,10 +5,56 @@ using namespace cv;
 using namespace std;
 #include <bitset>
 
-
 MoFREAKUtilities::MoFREAKUtilities(int dset)
 {
 	dataset = dset;
+	const int NB_SCALES = 64;
+	const int NB_PAIRS = 512;
+	const int NB_ORIENPAIRS = 45;
+    const double FREAK_LOG2 = 0.693147180559945;
+    const int nOctaves = 4;
+    const int FREAK_NB_ORIENTATION = 256;
+    const int FREAK_NB_POINTS = 43;
+    const int FREAK_SMALLEST_KP_SIZE = 7; // smallest size of keypoints
+	const float patternScale = 22.0f;
+	// buildPattern
+    // Read pattern
+	ifstream fin("D:/project/action/sample_data/patternLookup");
+    while(!fin.eof()) {
+        PatternPoint temp;
+        fin >> temp.x >> temp.y >> temp.sigma;
+        patternLookup.push_back(temp);
+    }
+    fin.close();
+    fin.open("D:/project/action/sample_data/patternSizes");
+    int idx = 0;
+    while(!fin.eof())
+        fin >> patternSizes[idx++];
+    fin.close();
+    fin.open("D:/project/action/sample_data/orientationPairs");
+    idx = 0;
+    while(!fin.eof()) {
+        int i, j;
+        fin >> i >> j >> orientationPairs[idx].weight_dx >> orientationPairs[idx].weight_dy;
+        orientationPairs[idx].i = i; 
+        orientationPairs[idx].j = j;
+        if(idx == NB_ORIENPAIRS-1) break;
+        else ++idx;
+    }
+    fin.close();
+    fin.open("D:/project/action/sample_data/newDesPairs");
+    idx = 0;
+    while(!fin.eof()) {
+        int i, j;
+        fin >> i >> j;
+        newDesPairs[idx].i = i;
+        newDesPairs[idx].j = j;
+        if(idx == NB_PAIRS-1) break;
+        else ++idx;
+    }
+    fin.close();     
+	// end building pattern    
+ 
 }
 
 // vanilla string split operation.  Direct copy-paste from stack overflow
@@ -375,34 +421,13 @@ bool MoFREAKUtilities::sufficientMotion(cv::Mat &diff_integral_img, float &x, fl
 	return (motion > MOTION_THRESHOLD);
 }
 
-struct PatternPoint
-{
-    float x; // x coordinate relative to center
-    float y; // x coordinate relative to center
-    float sigma; // Gaussian smoothing sigma
-};
 
-struct DescriptionPair
-{
-    uchar i; // index of the first point
-    uchar j; // index of the second point
-};
-
-struct OrientationPair
-{
-    uchar i; // index of the first point
-    uchar j; // index of the second point
-    int weight_dx; // dx/(norm_sq))*4096
-    int weight_dy; // dy/(norm_sq))*4096
-};
-
-uchar meanIntensity( const cv::Mat& image, const cv::Mat& integral,
+uchar MoFREAKUtilities::meanIntensity( const cv::Mat& image, const cv::Mat& integral,
                             const float kp_x,
                             const float kp_y,
                             const unsigned int scale,
                             const unsigned int rot,
-                            const unsigned int point,
-							const vector<PatternPoint>& patternLookup) {
+                            const unsigned int point) {
     // get point position in image
     const int FREAK_NB_ORIENTATION = 256;
     const int FREAK_NB_POINTS = 43;
@@ -456,7 +481,7 @@ uchar meanIntensity( const cv::Mat& image, const cv::Mat& integral,
     return static_cast<uchar>(ret_val);
 }
 
-void computeImpl( const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors )  {
+void MoFREAKUtilities::myFREAKcompute( const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors )  {
     // NB_SCALES = 64, NB_PAIRS = 512, NB_ORIENPAIRS = 45
 	const int NB_SCALES = 64;
 	const int NB_PAIRS = 512;
@@ -471,49 +496,7 @@ void computeImpl( const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptor
         return;
     if( keypoints.empty() )
         return;
-	// buildPattern
-	vector<PatternPoint> patternLookup;
-	int patternSizes[NB_SCALES];
-    DescriptionPair descriptionPairs[NB_PAIRS];
-    DescriptionPair newDesPairs[NB_PAIRS];
-    OrientationPair orientationPairs[NB_ORIENPAIRS];
-    // Read pattern
-	ifstream fin("D:/project/action/sample_data/patternLookup");
-    while(!fin.eof()) {
-        PatternPoint temp;
-        fin >> temp.x >> temp.y >> temp.sigma;
-        patternLookup.push_back(temp);
-    }
-    fin.close();
-    fin.open("D:/project/action/sample_data/patternSizes");
-    int idx = 0;
-    while(!fin.eof())
-        fin >> patternSizes[idx++];
-    fin.close();
-    fin.open("D:/project/action/sample_data/orientationPairs");
-    idx = 0;
-    while(!fin.eof()) {
-        int i, j;
-        fin >> i >> j >> orientationPairs[idx].weight_dx >> orientationPairs[idx].weight_dy;
-        orientationPairs[idx].i = i; 
-        orientationPairs[idx].j = j;
-        if(idx == NB_ORIENPAIRS-1) break;
-        else ++idx;
-    }
-    fin.close();
-    fin.open("D:/project/action/sample_data/newDesPairs");
-    idx = 0;
-    while(!fin.eof()) {
-        int i, j;
-        fin >> i >> j;
-        newDesPairs[idx].i = i;
-        newDesPairs[idx].j = j;
-        if(idx == NB_PAIRS-1) break;
-        else ++idx;
-    }
-    fin.close();     
-	// end building pattern    
-    
+   
     Mat imgIntegral;
     integral(image, imgIntegral);
     std::vector<int> kpScaleIdx(keypoints.size()); // used to save pattern scale index corresponding to each keypoints
@@ -552,7 +535,7 @@ void computeImpl( const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptor
         // estimate orientation (gradient)
         // get the points intensity value in the un-rotated pattern
         for( int i = FREAK_NB_POINTS; i--; ) {
-            pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], 0, i, patternLookup);
+            pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], 0, i);
         }
         direction0 = 0;
         direction1 = 0;
@@ -573,7 +556,7 @@ void computeImpl( const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptor
             
         // extract descriptor at the computed orientation
         for( int i = FREAK_NB_POINTS; i--; ) {
-            pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], thetaIdx, i, patternLookup);
+            pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], thetaIdx, i);
         }
         // extracting descriptor
         for(int n = 0; n < NB_PAIRS; ++n)
@@ -619,12 +602,12 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 
 	unsigned int frame_num = GAP_FOR_FRAME_DIFFERENCE - 1;
 	
-	//while (true)
+	while (true) // line 610
 	{
 		capture >> current_frame;
 		if (current_frame.empty())	
 		{
-			//break;
+			break;
 		}
 		cv::cvtColor(current_frame ,current_frame, CV_BGR2GRAY);
 
@@ -656,9 +639,10 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 
 		// extract the FREAK descriptors efficiently over the whole frame
 		// For now, we are just computing the motion FREAK!  It seems to be giving better results.
-		cv::FREAK extractor;
+		//cv::FREAK extractor;
 		start_extractor = clock();
-		extractor.compute(diff_img, keypoints, descriptors);
+		//extractor.compute(diff_img, keypoints, descriptors);
+		myFREAKcompute(diff_img, keypoints, descriptors);
 		duration_extractor += clock()-start_extractor;
 		fout.open("D:/project/action/sample_data/descriptors");
 		for(int y=0; y<descriptors.rows; ++y) {

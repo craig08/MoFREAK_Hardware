@@ -20,6 +20,27 @@ using namespace std;
 #define MOTION_BYTES 8
 #define APPEARANCE_BYTES 8
 
+struct PatternPoint
+{
+    float x; // x coordinate relative to center
+    float y; // x coordinate relative to center
+    float sigma; // Gaussian smoothing sigma
+};
+
+struct DescriptionPair
+{
+    uchar i; // index of the first point
+    uchar j; // index of the second point
+};
+
+struct OrientationPair
+{
+    uchar i; // index of the first point
+    uchar j; // index of the second point
+    int weight_dx; // dx/(norm_sq))*4096
+    int weight_dy; // dy/(norm_sq))*4096
+};
+
 struct MoFREAKFeature
 {
 	MoFREAKFeature(int motion_bytes, int appearance_bytes) 
@@ -72,6 +93,9 @@ public:
 	static const int NUMBER_OF_BYTES_FOR_APPEARANCE = APPEARANCE_BYTES;
 	static const int NUMBER_OF_BYTES_FOR_MOTION = MOTION_BYTES;
 
+	uchar meanIntensity( const cv::Mat& , const cv::Mat& , const float , const float , const unsigned int , const unsigned int , const unsigned int );
+	void myFREAKcompute( const cv::Mat& , vector<cv::KeyPoint>& , cv::Mat& ) ;
+
 private:
 	
 	vector<unsigned int> extractFREAKFeature(cv::Mat &frame, float x, float y, float scale, bool extract_full_descriptor = false);
@@ -101,5 +125,10 @@ private:
 
 	int dataset;
 	enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
+	
+	vector<PatternPoint> patternLookup;
+	int patternSizes[64];
+    DescriptionPair newDesPairs[512];
+    OrientationPair orientationPairs[45];
 };
 #endif
