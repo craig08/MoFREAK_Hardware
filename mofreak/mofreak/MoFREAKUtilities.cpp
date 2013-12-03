@@ -1,6 +1,9 @@
 #include "MoFREAKUtilities.h"
 //#include <brisk\brisk.h>
 #include "brisk.h"
+using namespace cv;
+using namespace std;
+#include <bitset>
 
 
 MoFREAKUtilities::MoFREAKUtilities(int dset)
@@ -370,6 +373,214 @@ bool MoFREAKUtilities::sufficientMotion(cv::Mat &diff_integral_img, float &x, fl
 	motion = br + tl - tr - bl;
 
 	return (motion > MOTION_THRESHOLD);
+}
+
+struct PatternPoint
+{
+    float x; // x coordinate relative to center
+    float y; // x coordinate relative to center
+    float sigma; // Gaussian smoothing sigma
+};
+
+struct DescriptionPair
+{
+    uchar i; // index of the first point
+    uchar j; // index of the second point
+};
+
+struct OrientationPair
+{
+    uchar i; // index of the first point
+    uchar j; // index of the second point
+    int weight_dx; // dx/(norm_sq))*4096
+    int weight_dy; // dy/(norm_sq))*4096
+};
+
+uchar meanIntensity( const cv::Mat& image, const cv::Mat& integral,
+                            const float kp_x,
+                            const float kp_y,
+                            const unsigned int scale,
+                            const unsigned int rot,
+                            const unsigned int point,
+							const vector<PatternPoint>& patternLookup) {
+    // get point position in image
+    const int FREAK_NB_ORIENTATION = 256;
+    const int FREAK_NB_POINTS = 43;
+    const PatternPoint& FreakPoint = patternLookup[scale*FREAK_NB_ORIENTATION*FREAK_NB_POINTS + rot*FREAK_NB_POINTS + point];
+    const float xf = FreakPoint.x+kp_x;
+    const float yf = FreakPoint.y+kp_y;
+    const int x = int(xf);
+    const int y = int(yf);
+    const int& imagecols = image.cols;
+
+    // get the sigma:
+    const float radius = FreakPoint.sigma;
+
+    // calculate output:
+    if( radius < 0.5 ) {
+        // interpolation multipliers:
+        const int r_x = static_cast<int>((xf-x)*1024);
+        const int r_y = static_cast<int>((yf-y)*1024);
+        const int r_x_1 = (1024-r_x);
+        const int r_y_1 = (1024-r_y);
+        uchar* ptr = image.data+x+y*imagecols;
+        unsigned int ret_val;
+        // linear interpolation:
+        ret_val = (r_x_1*r_y_1*int(*ptr));
+        ptr++;
+        ret_val += (r_x*r_y_1*int(*ptr));
+        ptr += imagecols;
+        ret_val += (r_x*r_y*int(*ptr));
+        ptr--;
+        ret_val += (r_x_1*r_y*int(*ptr));
+        //return the rounded mean
+        ret_val += 2 * 1024 * 1024;
+        return static_cast<uchar>(ret_val / (4 * 1024 * 1024));
+    }
+
+    // expected case:
+
+    // calculate borders
+    const int x_left = int(xf-radius+0.5);
+    const int y_top = int(yf-radius+0.5);
+    const int x_right = int(xf+radius+1.5);//integral image is 1px wider
+    const int y_bottom = int(yf+radius+1.5);//integral image is 1px higher
+    int ret_val;
+
+    ret_val = integral.at<int>(y_bottom,x_right);//bottom right corner
+    ret_val -= integral.at<int>(y_bottom,x_left);
+    ret_val += integral.at<int>(y_top,x_left);
+    ret_val -= integral.at<int>(y_top,x_right);
+    ret_val = ret_val/( (x_right-x_left)* (y_bottom-y_top) );
+    //~ std::cout<<integral.step[1]<<std::endl;
+    return static_cast<uchar>(ret_val);
+}
+
+void computeImpl( const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors )  {
+    // NB_SCALES = 64, NB_PAIRS = 512, NB_ORIENPAIRS = 45
+	const int NB_SCALES = 64;
+	const int NB_PAIRS = 512;
+	const int NB_ORIENPAIRS = 45;
+    const double FREAK_LOG2 = 0.693147180559945;
+    const int nOctaves = 4;
+    const int FREAK_NB_ORIENTATION = 256;
+    const int FREAK_NB_POINTS = 43;
+    const int FREAK_SMALLEST_KP_SIZE = 7; // smallest size of keypoints
+	const float patternScale = 22.0f;
+    if( image.empty() )
+        return;
+    if( keypoints.empty() )
+        return;
+	// buildPattern
+	vector<PatternPoint> patternLookup;
+	int patternSizes[NB_SCALES];
+    DescriptionPair descriptionPairs[NB_PAIRS];
+    DescriptionPair newDesPairs[NB_PAIRS];
+    OrientationPair orientationPairs[NB_ORIENPAIRS];
+    // Read pattern
+	ifstream fin("D:/project/action/sample_data/patternLookup");
+    while(!fin.eof()) {
+        PatternPoint temp;
+        fin >> temp.x >> temp.y >> temp.sigma;
+        patternLookup.push_back(temp);
+    }
+    fin.close();
+    fin.open("D:/project/action/sample_data/patternSizes");
+    int idx = 0;
+    while(!fin.eof())
+        fin >> patternSizes[idx++];
+    fin.close();
+    fin.open("D:/project/action/sample_data/orientationPairs");
+    idx = 0;
+    while(!fin.eof()) {
+        int i, j;
+        fin >> i >> j >> orientationPairs[idx].weight_dx >> orientationPairs[idx].weight_dy;
+        orientationPairs[idx].i = i; 
+        orientationPairs[idx].j = j;
+        if(idx == NB_ORIENPAIRS-1) break;
+        else ++idx;
+    }
+    fin.close();
+    fin.open("D:/project/action/sample_data/newDesPairs");
+    idx = 0;
+    while(!fin.eof()) {
+        int i, j;
+        fin >> i >> j;
+        newDesPairs[idx].i = i;
+        newDesPairs[idx].j = j;
+        if(idx == NB_PAIRS-1) break;
+        else ++idx;
+    }
+    fin.close();     
+	// end building pattern    
+    
+    Mat imgIntegral;
+    integral(image, imgIntegral);
+    std::vector<int> kpScaleIdx(keypoints.size()); // used to save pattern scale index corresponding to each keypoints
+    const std::vector<int>::iterator ScaleIdxBegin = kpScaleIdx.begin(); 
+    const std::vector<cv::KeyPoint>::iterator kpBegin = keypoints.begin(); 
+    const float sizeCst = static_cast<float>(NB_SCALES/(FREAK_LOG2* nOctaves));
+    uchar pointsValue[FREAK_NB_POINTS];
+    int thetaIdx = 0;
+    int direction0;
+    int direction1;
+
+    // compute the scale index corresponding to the keypoint size and remove keypoints close to the border
+    for( size_t k = keypoints.size(); k--; ) {
+        kpScaleIdx[k] = max( (int)(log(keypoints[k].size/FREAK_SMALLEST_KP_SIZE)*sizeCst+0.5) ,0);
+        if( kpScaleIdx[k] >= NB_SCALES )
+            kpScaleIdx[k] = NB_SCALES-1;
+        //cout << "keypoints.size: " << keypoints[k].size << " kpScaleIdx: " << kpScaleIdx[k] << endl;
+        //cout << "x: " << keypoints[k].pt.x << " y: " << keypoints[k].pt.y << " patternSizes[kpScaleIdx[k]]: " << patternSizes[kpScaleIdx[k]] << endl;
+        //check if the description at this specific position and scale fits inside the image
+        if( keypoints[k].pt.x <= patternSizes[kpScaleIdx[k]] || 
+            keypoints[k].pt.y <= patternSizes[kpScaleIdx[k]] ||
+            keypoints[k].pt.x >= image.cols-patternSizes[kpScaleIdx[k]] ||
+            keypoints[k].pt.y >= image.rows-patternSizes[kpScaleIdx[k]]
+           ) {
+            keypoints.erase(kpBegin+k);
+            kpScaleIdx.erase(ScaleIdxBegin+k);
+            //cout << "Erased!" << endl << endl;
+        }
+    }
+
+    // allocate descriptor memory, estimate orientations, extract descriptors
+    // extract the best comparisons only
+    descriptors = cv::Mat::zeros((int)keypoints.size(), NB_PAIRS/8, CV_8U);
+    std::bitset<NB_PAIRS>* ptr = (std::bitset<NB_PAIRS>*) (descriptors.data+(keypoints.size()-1)*descriptors.step[0]);
+    for( size_t k = keypoints.size(); k--; ) {
+        // estimate orientation (gradient)
+        // get the points intensity value in the un-rotated pattern
+        for( int i = FREAK_NB_POINTS; i--; ) {
+            pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], 0, i, patternLookup);
+        }
+        direction0 = 0;
+        direction1 = 0;
+        for( int m = 45; m--; ) {
+            //iterate through the orientation pairs
+            const int delta = (pointsValue[ orientationPairs[m].i ]-pointsValue[ orientationPairs[m].j ]);
+            direction0 += delta*(orientationPairs[m].weight_dx)/2048;
+            direction1 += delta*(orientationPairs[m].weight_dy)/2048;
+        }
+
+        keypoints[k].angle = static_cast<float>(atan2((float)direction1,(float)direction0)*(180.0/CV_PI));//estimate orientation
+        thetaIdx = int(FREAK_NB_ORIENTATION*keypoints[k].angle*(1/360.0)+0.5);
+        if( thetaIdx < 0 )
+            thetaIdx += FREAK_NB_ORIENTATION;
+
+        if( thetaIdx >= FREAK_NB_ORIENTATION )
+            thetaIdx -= FREAK_NB_ORIENTATION;
+            
+        // extract descriptor at the computed orientation
+        for( int i = FREAK_NB_POINTS; i--; ) {
+            pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], thetaIdx, i, patternLookup);
+        }
+        // extracting descriptor
+        for(int n = 0; n < NB_PAIRS; ++n)
+            ptr->set(n, pointsValue[newDesPairs[n].i] >= pointsValue[newDesPairs[n].j]);
+        --ptr;
+    }
+    
 }
 
 void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::string mofreak_filename, bool clear_features_after_computation)
