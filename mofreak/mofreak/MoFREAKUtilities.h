@@ -130,5 +130,6 @@ private:
 	int patternSizes[64];
     DescriptionPair newDesPairs[512];
     OrientationPair orientationPairs[45];
+	clock_t duration_integral, duration_remove, duration_orientation, duration_value;
 };
 #endif
