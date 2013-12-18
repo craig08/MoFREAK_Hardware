@@ -612,12 +612,12 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 
 	unsigned int frame_num = GAP_FOR_FRAME_DIFFERENCE - 1;
 	
-	while (true) // line 610
+	//while (true) // remember to comment out break
 	{
 		capture >> current_frame;
 		if (current_frame.empty())	
 		{
-			break;
+			//break;
 		}
 		cv::cvtColor(current_frame ,current_frame, CV_BGR2GRAY);
 
@@ -626,9 +626,9 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		start_diff = clock();
 		cv::absdiff(current_frame, prev_frame, diff_img);
 		duration_diff += clock()-start_diff;
-		//cv::imwrite("D:/project/action/sample_data/current_frame.png", current_frame);
-		//cv::imwrite("D:/project/action/sample_data/prev_frame.png", prev_frame);
-		//cv::imwrite("D:/project/action/sample_data/diff_img.png", diff_img);
+		//cv::imwrite("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/current_frame.png", current_frame);
+		//cv::imwrite("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/prev_frame.png", prev_frame);
+		//cv::imwrite("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/diff_img.png", diff_img);
 
 		vector<cv::KeyPoint> keypoints, diff_keypoints;
 		cv::Mat descriptors;
@@ -642,7 +642,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		start_detector = clock();
 		diff_detector->detect(diff_img, keypoints); // modified craig 2013.10.20
 		duration_detector += clock()-start_detector;
-		ofstream fout("D:/project/action/sample_data/keypoints");
+		ofstream fout("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/keypoints");
 		for(auto keypt=keypoints.begin(); keypt!=keypoints.end(); ++keypt)
 			fout << keypt->pt.x << " " << keypt->pt.y << " " << keypt->size << endl;
 		fout.close();
@@ -655,7 +655,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		myFREAKcompute(diff_img, keypoints, descriptors);
 		duration_extractor += clock()-start_extractor;
 
-		fout.open("D:/project/action/sample_data/descriptors");
+		fout.open("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/descriptors");
 		for(int y=0; y<descriptors.rows; ++y) {
 			for(int x=0; x<descriptors.cols; ++x) {
 				fout << (int)descriptors.at<uchar>(y,x) << " ";

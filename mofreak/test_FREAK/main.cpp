@@ -276,7 +276,7 @@ void computeImpl( const Mat& image, std::vector<KeyPoint>& keypoints, Mat& descr
 
 
 int main() {
-	ifstream fin("D:/project/action/sample_data/keypoints", ifstream::in);
+	ifstream fin("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/keypoints", ifstream::in);
 	vector<KeyPoint> keypoints;
 	while(!fin.eof()) {
 		KeyPoint kp;
@@ -285,35 +285,40 @@ int main() {
 	}
 	fin.close();
 	
-	Mat diff_img = imread("D:/project/action/sample_data/diff_img.png", CV_LOAD_IMAGE_GRAYSCALE);
-	//Mat current_frame = imread("D:/project/action/sample_data/current_frame.png", CV_LOAD_IMAGE_GRAYSCALE);
-	//Mat prev_frame = imread("D:/project/action/sample_data/prev_frame.png", CV_LOAD_IMAGE_GRAYSCALE);
+	Mat diff_img = imread("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/diff_img.png", CV_LOAD_IMAGE_GRAYSCALE);
+	//Mat draw;
+	//drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+	//imwrite("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/draw_initial.png", draw);
+	//Mat current_frame = imread("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/current_frame.png", CV_LOAD_IMAGE_GRAYSCALE);
+	//Mat prev_frame = imread("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/prev_frame.png", CV_LOAD_IMAGE_GRAYSCALE);
 	Mat descriptors;
-	//FREAK extractor;
-	//extractor.compute(diff_img, keypoints, descriptors);
-	computeImpl(diff_img, keypoints, descriptors);
+	FREAK extractor;
+	extractor.compute(diff_img, keypoints, descriptors);
+	//computeImpl(diff_img, keypoints, descriptors);
 	/* test MIP
 	for(auto keypt=keypoints.begin(); keypt!=keypoints.end(); ++keypt) {
 		unsigned int MIP = motionInterchangePattern(current_frame, prev_frame, keypt->pt.x, keypt->pt.y);
 		cout << MIP << endl;
 	}
 	*/
-	ofstream fout("D:/project/action/sample_data/descriptors_test");
+	ofstream fout("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/keypoints_final");
+	for(auto y=keypoints.begin(); y!=keypoints.end(); ++y) {
+		fout << y->pt.x << " " << y->pt.y << " " << y->size << " " << y->angle << endl;
+	}
+	fout.close();	
+	fout.open("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/descriptors_test");
 	for(int y=0; y<descriptors.rows; ++y) {
 		for(int x=0; x<descriptors.cols; ++x) {
 			fout << (int)descriptors.at<uchar>(y,x) << " ";
 		}
 		fout << endl;
 	}
-	fout.close();
+	fout.close();	
+	//drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+	//imwrite("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/draw_after_extraction.png", draw);
 
-	/*
-	cout << "Keypoints.size: " << keypoints.size() << endl;
-	for(auto it=keypoints.begin(); it!= keypoints.end(); ++it)
-		cout << it->pt.x << " " << it->pt.y << " " << it->size << endl;
-		*/
-	int k;
-	cin >> k;
+	//cvWaitKey(0);
+	system("pause");
 	
 	return 0;
 }
