@@ -17,6 +17,7 @@
 #include "MoSIFTUtilities.h"
 using namespace std;
 
+
 #define MOTION_BYTES 8
 #define APPEARANCE_BYTES 8
 

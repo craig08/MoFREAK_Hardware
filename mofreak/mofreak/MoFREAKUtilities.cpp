@@ -19,19 +19,19 @@ MoFREAKUtilities::MoFREAKUtilities(int dset)
 	const float patternScale = 22.0f;
 	// buildPattern
     // Read pattern
-	ifstream fin("D:/project/action/sample_data/patternLookup");
+	ifstream fin("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/patternLookup");
     while(!fin.eof()) {
         PatternPoint temp;
         fin >> temp.x >> temp.y >> temp.sigma;
         patternLookup.push_back(temp);
     }
     fin.close();
-    fin.open("D:/project/action/sample_data/patternSizes");
+    fin.open("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/patternSizes");
     int idx = 0;
     while(!fin.eof())
         fin >> patternSizes[idx++];
     fin.close();
-    fin.open("D:/project/action/sample_data/orientationPairs");
+    fin.open("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/orientationPairs");
     idx = 0;
     while(!fin.eof()) {
         int i, j;
@@ -42,7 +42,7 @@ MoFREAKUtilities::MoFREAKUtilities(int dset)
         else ++idx;
     }
     fin.close();
-    fin.open("D:/project/action/sample_data/newDesPairs");
+    fin.open("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/newDesPairs");
     idx = 0;
     while(!fin.eof()) {
         int i, j;
@@ -626,17 +626,17 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		start_diff = clock();
 		cv::absdiff(current_frame, prev_frame, diff_img);
 		duration_diff += clock()-start_diff;
-		//cv::imwrite("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/current_frame.png", current_frame);
-		//cv::imwrite("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/prev_frame.png", prev_frame);
-		//cv::imwrite("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/diff_img.png", diff_img);
+		cv::imwrite("D:/project/action/sample_data/current_frame.png", current_frame);
+		cv::imwrite("D:/project/action/sample_data/prev_frame.png", prev_frame);
+		cv::imwrite("D:/project/action/sample_data/diff_img.png", diff_img);
 
 		vector<cv::KeyPoint> keypoints, diff_keypoints;
 		cv::Mat descriptors;
 		
 		// detect all keypoints.
 		//cv::BriskFeatureDetector *detector = new cv::BriskFeatureDetector(30);
-		cv::BriskFeatureDetector *diff_detector = new cv::BriskFeatureDetector(30); 
-		//cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
+		//cv::BriskFeatureDetector *diff_detector = new cv::BriskFeatureDetector(30); 
+		cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
 
 		//detector->detect(current_frame, keypoints);
 		start_detector = clock();

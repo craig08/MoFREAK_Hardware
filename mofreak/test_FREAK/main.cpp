@@ -285,12 +285,13 @@ int main() {
 	}
 	fin.close();
 	
-	Mat diff_img = imread("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/diff_img.png", CV_LOAD_IMAGE_GRAYSCALE);
-	//Mat draw;
-	//drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
-	//imwrite("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/draw_initial.png", draw);
-	//Mat current_frame = imread("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/current_frame.png", CV_LOAD_IMAGE_GRAYSCALE);
-	//Mat prev_frame = imread("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/prev_frame.png", CV_LOAD_IMAGE_GRAYSCALE);
+	Mat diff_img = imread("D:/project/action/sample_data/diff_img.png", CV_LOAD_IMAGE_GRAYSCALE);
+	Mat draw;
+	drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+	imshow("draw_initial", draw);
+	//imwrite("D:/project/action/sample_data/draw_initial.png", draw);
+	//Mat current_frame = imread("D:/project/action/sample_data/current_frame.png", CV_LOAD_IMAGE_GRAYSCALE);
+	//Mat prev_frame = imread("D:/project/action/sample_data/prev_frame.png", CV_LOAD_IMAGE_GRAYSCALE);
 	Mat descriptors;
 	FREAK extractor;
 	extractor.compute(diff_img, keypoints, descriptors);
@@ -314,11 +315,12 @@ int main() {
 		fout << endl;
 	}
 	fout.close();	
-	//drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
-	//imwrite("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/draw_after_extraction.png", draw);
+	drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+	imshow("draw_after_extraction", draw);
+	//imwrite("D:/project/action/sample_data/draw_after_extraction.png", draw);
 
-	//cvWaitKey(0);
-	system("pause");
+	cvWaitKey(0);
+	//system("pause");
 	
 	return 0;
 }
