@@ -99,9 +99,9 @@ void setParameters()
 
 		// structural folder info.
 		MOSIFT_DIR = "C:/data/kth/mosift/";
-		MOFREAK_PATH = "D:/project/action/dataset/mofreak"; 
-		VIDEO_PATH = "D:/project/action/dataset/test";
-		SVM_PATH = "D:/project/action/dataset/svm/";
+		MOFREAK_PATH = "D:/project/action/dataset/KTH/mofreak"; 
+		VIDEO_PATH = "D:/project/action/dataset/KTH/test";
+		SVM_PATH = "D:/project/action/dataset/KTH/svm/";
 		METADATA_PATH = "";
 	}
 
@@ -133,9 +133,9 @@ void setParameters()
 			possible_classes.push_back(i);
 		}
 
-		MOFREAK_PATH = "C:/data/ucf101/mofreak/";
-		VIDEO_PATH = "C:/data/ucf101/videos/";
-		SVM_PATH = "C:/data/ucf101/svm/";
+		MOFREAK_PATH = "D:/project/action/dataset/UCF101/mofreak";
+		VIDEO_PATH = "D:/project/action/dataset/UCF101/test";
+		SVM_PATH = "D:/project/action/dataset/UCF101/svm";
 		METADATA_PATH = "C:/data/ucf101/metadata/";
 	}
 

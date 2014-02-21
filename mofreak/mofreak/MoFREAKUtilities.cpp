@@ -587,6 +587,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 	std::string debug_filename = video_filename;
 	// ignore the first frames because we can't compute the frame difference with them.
 	const int GAP_FOR_FRAME_DIFFERENCE = 5;
+	char path[1024];
 
 	cv::VideoCapture capture;
 	capture.open(video_filename);
@@ -626,9 +627,9 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		start_diff = clock();
 		cv::absdiff(current_frame, prev_frame, diff_img);
 		duration_diff += clock()-start_diff;
-		cv::imwrite("D:/project/action/sample_data/current_frame.png", current_frame);
-		cv::imwrite("D:/project/action/sample_data/prev_frame.png", prev_frame);
-		cv::imwrite("D:/project/action/sample_data/diff_img.png", diff_img);
+		cv::imwrite("D:/project/action/sample_img/current_frame.png", current_frame);
+		cv::imwrite("D:/project/action/sample_img/prev_frame.png", prev_frame);
+		cv::imwrite("D:/project/action/sample_img/diff_img.png", diff_img);
 
 		vector<cv::KeyPoint> keypoints, diff_keypoints;
 		cv::Mat descriptors;
@@ -636,16 +637,19 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		// detect all keypoints.
 		//cv::BriskFeatureDetector *detector = new cv::BriskFeatureDetector(30);
 		//cv::BriskFeatureDetector *diff_detector = new cv::BriskFeatureDetector(30); 
+		//BRISK *diff_detector = new BRISK(30); 
 		cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
 
 		//detector->detect(current_frame, keypoints);
 		start_detector = clock();
-		diff_detector->detect(diff_img, keypoints); // modified craig 2013.10.20
+		diff_detector->detect(diff_img, keypoints); 
 		duration_detector += clock()-start_detector;
+		
 		ofstream fout("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/keypoints");
 		for(auto keypt=keypoints.begin(); keypt!=keypoints.end(); ++keypt)
 			fout << keypt->pt.x << " " << keypt->pt.y << " " << keypt->size << endl;
 		fout.close();
+		
 
 		// extract the FREAK descriptors efficiently over the whole frame
 		// For now, we are just computing the motion FREAK!  It seems to be giving better results.
@@ -654,7 +658,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		//extractor.compute(diff_img, keypoints, descriptors);
 		myFREAKcompute(diff_img, keypoints, descriptors);
 		duration_extractor += clock()-start_extractor;
-
+		
 		fout.open("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/descriptors");
 		for(int y=0; y<descriptors.rows; ++y) {
 			for(int x=0; x<descriptors.cols; ++x) {
@@ -663,8 +667,13 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 			fout << endl;
 		}
 		fout.close();
+		/*
 		//cout << "--------------------------------" << keypoints.size() << " detected features" << endl;
-		
+		Mat draw;
+		drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+		sprintf(path, "D:/project/action/sample_data/draw/draw_after_extraction_%03d.png", frame_num);
+		imwrite(path, draw);
+		*/
 
 		// for each detected keypoint
 		vector<cv::KeyPoint> current_frame_keypts;
