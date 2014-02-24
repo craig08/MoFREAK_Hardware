@@ -22,6 +22,7 @@
 
 using namespace std;
 using namespace boost::filesystem;
+using namespace cv;
 
 bool DISTRIBUTED = false;
 
@@ -37,12 +38,12 @@ vector<int> possible_classes;
 std::deque<MoFREAKFeature> mofreak_ftrs;
 
 enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognition states
-	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES,}; // these states are exclusive to TRECVID
+	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION}; // these states are exclusive to TRECVID
 
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
 
 int dataset = KTH; //KTH;//HMDB51;
-int state = DETECT_MOFREAK;
+int state = RECOGNITION;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -923,7 +924,56 @@ void computeMoFREAKFiles()
 	}
 }
 
-void main()
+void recognition(const char *video_file) {
+    cout << "in eval" << endl;
+	// gather testing and training files...
+	vector<std::string> testing_files;
+	vector<std::string> training_files;
+	cout << "Eval SVM..." << endl;
+
+    //cout << "New loop iteration" << endl;
+    SVMInterface svm_guy;
+    // tell GUI where we're at in the l-o-o process
+    //cout << "Cross validation set " << i + 1 << endl;
+
+    string model_filename = SVM_PATH;
+	model_filename.append("/model.svm");
+    // build model.
+    //string training_file = training_files[i];
+    //svm_guy.trainModel(training_file, model_file_name);
+
+    // get accuracy.
+    string test_filename = SVM_PATH;
+    test_filename.append("1.test");
+    string svm_out = SVM_PATH;
+	svm_out.append("responses.txt");
+    
+    //svm_guy.trainModel(train_filename, model_filename);
+    double accuracy = svm_guy.testModel(test_filename, model_filename, svm_out);
+    //cout << svm_out << endl;
+    //summed_accuracy += accuracy;
+
+    
+    
+    
+    
+    VideoCapture video;
+    video.open(video_file);
+    if(!video.isOpened()) {
+        cout << "Fail to open " << video_file << "!" << endl;
+        return;
+    }
+    while(true) {
+        Mat frame;
+        if(!video.read(frame)) break;
+        imshow("Test Video", frame);
+        waitKey(10);
+    }
+    destroyWindow("Test Video");
+    //waitKey(0);
+}
+
+void main(int argc, char *argv[])
 {
 	setParameters();
 	clock_t start, end;
@@ -989,6 +1039,16 @@ void main()
 		cout << "deleted" << endl;
 		end = clock();
 	}
+    else if (state == RECOGNITION)
+    {
+		start = clock();
+        if(argc != 2) {
+            cout << "Usage: " << argv[0] << " your_video_filename" << endl;
+            return;
+        }
+        recognition(argv[1]);
+		end = clock();
+    }
 	// TRECVID cases
 	else if (state == PICK_CLUSTERS)
 	{

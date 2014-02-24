@@ -613,12 +613,12 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 
 	unsigned int frame_num = GAP_FOR_FRAME_DIFFERENCE - 1;
 	
-	//while (true) // remember to comment out break
+	while (true) // remember to comment out break
 	{
 		capture >> current_frame;
 		if (current_frame.empty())	
 		{
-			//break;
+			break;
 		}
 		cv::cvtColor(current_frame ,current_frame, CV_BGR2GRAY);
 
@@ -627,9 +627,9 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		start_diff = clock();
 		cv::absdiff(current_frame, prev_frame, diff_img);
 		duration_diff += clock()-start_diff;
-		cv::imwrite("D:/project/action/sample_img/current_frame.png", current_frame);
-		cv::imwrite("D:/project/action/sample_img/prev_frame.png", prev_frame);
-		cv::imwrite("D:/project/action/sample_img/diff_img.png", diff_img);
+		//cv::imwrite("D:/project/action/sample_img/current_frame.png", current_frame);
+		//cv::imwrite("D:/project/action/sample_img/prev_frame.png", prev_frame);
+		//cv::imwrite("D:/project/action/sample_img/diff_img.png", diff_img);
 
 		vector<cv::KeyPoint> keypoints, diff_keypoints;
 		cv::Mat descriptors;
@@ -667,13 +667,13 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 			fout << endl;
 		}
 		fout.close();
-		/*
+		
 		//cout << "--------------------------------" << keypoints.size() << " detected features" << endl;
 		Mat draw;
 		drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
-		sprintf(path, "D:/project/action/sample_data/draw/draw_after_extraction_%03d.png", frame_num);
+		sprintf(path, "D:/project/action/sample_img/draw_SURF_handwaving/draw_after_extraction_%03d.png", frame_num);
 		imwrite(path, draw);
-		*/
+		
 
 		// for each detected keypoint
 		vector<cv::KeyPoint> current_frame_keypts;

@@ -551,17 +551,17 @@ double SVMInterface::testModel(std::string testing_data_file, std::string model_
 	fclose(testing_data);
 	//delete output;
 	//delete testing_data;
-	
-	svm_free_and_destroy_model(&model);
+	setParameters(&param, false);
 	svm_destroy_param(&param);
+	svm_free_and_destroy_model(&model);
 
 	return accuracy;
 }
 
 SVMInterface::~SVMInterface()
 {
-	delete x_space;
-	delete x;
+	//delete x_space;
+	//delete x;
 }
 
 int SVMInterface::max_line_len = 1024;
