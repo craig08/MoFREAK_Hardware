@@ -26,7 +26,7 @@ using namespace cv;
 
 bool DISTRIBUTED = false;
 
-string MOSIFT_DIR, MOFREAK_PATH, VIDEO_PATH, SVM_PATH, METADATA_PATH; // for file structure
+string MOSIFT_DIR, MOFREAK_PATH, VIDEO_PATH, SVM_PATH, METADATA_PATH, RECOG_PATH; // for file structure
 string MOFREAK_NEG_PATH, MOFREAK_POS_PATH; // these are TRECVID exclusive
 
 unsigned int NUM_MOTION_BYTES = 8;
@@ -103,6 +103,7 @@ void setParameters()
 		MOFREAK_PATH = "D:/project/action/dataset/KTH/mofreak"; 
 		VIDEO_PATH = "D:/project/action/dataset/KTH/test";
 		SVM_PATH = "D:/project/action/dataset/KTH/svm/";
+		RECOG_PATH = "D:/project/action/dataset/KTH/recognition/";
 		METADATA_PATH = "";
 	}
 
@@ -925,37 +926,62 @@ void computeMoFREAKFiles()
 }
 
 void recognition(const char *video_file) {
-    cout << "in eval" << endl;
+    BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);
+    
+	bool success;
+    Mat bow_feature;
+    string file("D:/project/action/dataset/KTH/mofreak/handwaving/person01_handwaving_d1_uncomp.avi.mofreak");
+	try
+	{
+		bow_feature = bow_rep.buildHistogram(file, success);
+	}
+	catch (cv::Exception &e)
+	{
+		cout << "Error: " << e.what() << endl;
+		exit(1);
+	}
+	if (!success)
+	{
+		std::cout << "Bag-of-words feature construction was unsuccessful.  Investigate." << std::endl;
+		exit(1);
+	}  
+
+    stringstream ss;
+	ss << (0 + 1) << " ";
+	for (int col = 0; col < bow_feature.cols; ++col)
+	{
+		ss << (int)(col + 1) << ":" << (float)bow_feature.at<float>(0, col) << " ";
+	}
+	string current_line;
+	current_line = ss.str();
+	ss.str("");
+	ss.clear();
+
+    ofstream fout;
+    string video_filename = path(video_file).filename().generic_string();
+    cout << "video_filename: " << video_filename << endl;
+    string recognition_filename = RECOG_PATH;
+    recognition_filename += "/";
+    recognition_filename += video_filename.substr(0, video_filename.length() - 4);
+    recognition_filename += ".bow";
+    fout.open(recognition_filename);
+    fout << current_line << endl;
+    fout.close();
+    
 	// gather testing and training files...
-	vector<std::string> testing_files;
-	vector<std::string> training_files;
 	cout << "Eval SVM..." << endl;
-
-    //cout << "New loop iteration" << endl;
     SVMInterface svm_guy;
-    // tell GUI where we're at in the l-o-o process
-    //cout << "Cross validation set " << i + 1 << endl;
-
     string model_filename = SVM_PATH;
 	model_filename.append("/model.svm");
     // build model.
-    //string training_file = training_files[i];
-    //svm_guy.trainModel(training_file, model_file_name);
-
-    // get accuracy.
-    string test_filename = SVM_PATH;
-    test_filename.append("1.test");
-    string svm_out = SVM_PATH;
-	svm_out.append("responses.txt");
+    //string test_filename = SVM_PATH;
+    //test_filename.append("1.test");
+    string test_filename = recognition_filename;
+    string svm_out = RECOG_PATH;
+	svm_out.append("/responses.txt");
     
-    //svm_guy.trainModel(train_filename, model_filename);
     double accuracy = svm_guy.testModel(test_filename, model_filename, svm_out);
-    //cout << svm_out << endl;
     //summed_accuracy += accuracy;
-
-    
-    
-    
     
     VideoCapture video;
     video.open(video_file);
