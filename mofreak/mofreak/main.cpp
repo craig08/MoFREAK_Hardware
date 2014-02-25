@@ -48,6 +48,24 @@ int state = RECOGNITION;
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
 
+string getAction(int act) {
+    switch(act) {
+        case 1:
+            return "BOXING";
+        case 2:
+            return "HANDCLAPPING";
+        case 3:
+            return "HANDWAVING";
+        case 4:
+            return "JOGGING";
+        case 5:
+            return "RUNNING";
+        case 6:
+            return "WALKING";
+    }
+    return "";
+};
+
 struct Detection
 {
 	int start_frame;
@@ -926,14 +944,19 @@ void computeMoFREAKFiles()
 }
 
 void recognition(const char *video_file) {
-    BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);
+    // Compute MoFREAK feature from file
+    string video_filename = path(video_file).filename().generic_string();
+    string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
+    mofreak->computeMoFREAKFromFile(video_file, mofreak_path, true);
     
+    // Compute BOW from MoFREAK and save .bow file
+    // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep
+    BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
 	bool success;
     Mat bow_feature;
-    string file("D:/project/action/dataset/KTH/mofreak/handwaving/person01_handwaving_d1_uncomp.avi.mofreak");
 	try
 	{
-		bow_feature = bow_rep.buildHistogram(file, success);
+		bow_feature = bow_rep.buildHistogram(mofreak_path, success);
 	}
 	catch (cv::Exception &e)
 	{
@@ -945,7 +968,6 @@ void recognition(const char *video_file) {
 		std::cout << "Bag-of-words feature construction was unsuccessful.  Investigate." << std::endl;
 		exit(1);
 	}  
-
     stringstream ss;
 	ss << (0 + 1) << " ";
 	for (int col = 0; col < bow_feature.cols; ++col)
@@ -956,33 +978,30 @@ void recognition(const char *video_file) {
 	current_line = ss.str();
 	ss.str("");
 	ss.clear();
-
+    
     ofstream fout;
-    string video_filename = path(video_file).filename().generic_string();
-    cout << "video_filename: " << video_filename << endl;
-    string recognition_filename = RECOG_PATH;
-    recognition_filename += "/";
-    recognition_filename += video_filename.substr(0, video_filename.length() - 4);
-    recognition_filename += ".bow";
-    fout.open(recognition_filename);
+    string recognition_path = RECOG_PATH + "/" + video_filename.substr(0, video_filename.length() - 4) + ".bow";
+    fout.open(recognition_path);
     fout << current_line << endl;
     fout.close();
     
-	// gather testing and training files...
-	cout << "Eval SVM..." << endl;
+	// Using trained SVM model to predict label of input video
     SVMInterface svm_guy;
-    string model_filename = SVM_PATH;
-	model_filename.append("/model.svm");
-    // build model.
-    //string test_filename = SVM_PATH;
-    //test_filename.append("1.test");
-    string test_filename = recognition_filename;
-    string svm_out = RECOG_PATH;
-	svm_out.append("/responses.txt");
+    string model_path = SVM_PATH + "/model.svm";
+    string test_path = recognition_path;
+    string svm_out = RECOG_PATH + "/response.txt";
     
-    double accuracy = svm_guy.testModel(test_filename, model_filename, svm_out);
+    double accuracy = svm_guy.testModel(test_path, model_path, svm_out);
+    int act = 0;
+    ifstream fin;
+    fin.open(svm_out);
+    while(fin >> act) {
+        cout << getAction(act) << endl;
+    }
+    fin.close();
     //summed_accuracy += accuracy;
     
+    // Play video
     VideoCapture video;
     video.open(video_file);
     if(!video.isOpened()) {
@@ -1069,7 +1088,7 @@ void main(int argc, char *argv[])
     {
 		start = clock();
         if(argc != 2) {
-            cout << "Usage: " << argv[0] << " your_video_filename" << endl;
+            cout << "Usage: " << argv[0] << " your_video_file" << endl;
             return;
         }
         recognition(argv[1]);
