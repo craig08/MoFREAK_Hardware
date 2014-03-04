@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <sstream>
 #include <limits>
+#include <iostream>
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>

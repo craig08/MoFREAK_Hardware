@@ -370,7 +370,7 @@ void MoFREAKUtilities::extractMotionByMotionInterchangePatterns(cv::Mat &current
 	for (auto it = patch_centers.begin(); it != patch_centers.end(); ++it)
 	{
 		//cout << "patch centered at " << it->x << ", " << it->y << endl;
-		unsigned int descriptor = motionInterchangePattern(frame_t, frame_t_minus_1, it->x, it->y);
+		unsigned int descriptor = motionInterchangePattern(frame_t, frame_t_minus_1, it->x, it->y); // 1 Byte
 		motion_descriptor.push_back(descriptor);
 	}
 }
@@ -397,8 +397,9 @@ bool MoFREAKUtilities::sufficientMotion(cv::Mat &current_frame, cv::Mat prev_fra
 
 	unsigned int num_ones = countOnes(descriptor);
 	
-	//return (num_ones > 0);//3);
-	return true;
+	//cout << "num_ones: " << num_ones << endl;
+    return (num_ones > 3);//3);
+	//return true;
 }
 
 bool MoFREAKUtilities::sufficientMotion(cv::Mat &diff_integral_img, float &x, float &y, float &scale, int &motion)
@@ -644,12 +645,12 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		start_detector = clock();
 		diff_detector->detect(diff_img, keypoints); 
 		duration_detector += clock()-start_detector;
-		
+		/*
 		ofstream fout("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/keypoints");
 		for(auto keypt=keypoints.begin(); keypt!=keypoints.end(); ++keypt)
 			fout << keypt->pt.x << " " << keypt->pt.y << " " << keypt->size << endl;
 		fout.close();
-		
+		*/
 
 		// extract the FREAK descriptors efficiently over the whole frame
 		// For now, we are just computing the motion FREAK!  It seems to be giving better results.
@@ -658,7 +659,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		//extractor.compute(diff_img, keypoints, descriptors);
 		myFREAKcompute(diff_img, keypoints, descriptors);
 		duration_extractor += clock()-start_extractor;
-		
+		/*
 		fout.open("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/descriptors");
 		for(int y=0; y<descriptors.rows; ++y) {
 			for(int x=0; x<descriptors.cols; ++x) {
@@ -667,11 +668,12 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 			fout << endl;
 		}
 		fout.close();
-		
+		*/
 		//cout << "--------------------------------" << keypoints.size() << " detected features" << endl;
+		
 		Mat draw;
 		drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
-		sprintf(path, "D:/project/action/sample_img/draw_SURF_handwaving/draw_after_extraction_%03d.png", frame_num);
+		sprintf(path, "D:/project/action/sample_img/draw_test/draw_after_extraction_%03d.png", frame_num);
 		imwrite(path, draw);
 		
 

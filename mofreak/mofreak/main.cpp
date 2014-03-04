@@ -51,17 +51,17 @@ MoFREAKUtilities *mofreak;
 string getAction(int act) {
     switch(act) {
         case 1:
-            return "BOXING";
+            return "Boxing";
         case 2:
-            return "HANDCLAPPING";
+            return "Handclapping";
         case 3:
-            return "HANDWAVING";
+            return "Handwaving";
         case 4:
-            return "JOGGING";
+            return "Jogging";
         case 5:
-            return "RUNNING";
+            return "Running";
         case 6:
-            return "WALKING";
+            return "Walking";
     }
     return "";
 };
@@ -944,16 +944,27 @@ void computeMoFREAKFiles()
 }
 
 void recognition(const char *video_file) {
-    // Compute MoFREAK feature from file
+    clock_t start = clock();
+    clock_t time_mofreak, time_BOW, time_predict;
+    
+    // Initialize file path
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
+    BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
+    SVMInterface svm_guy;
+    string model_path = SVM_PATH + "/model.svm";
+    //string svm_out = RECOG_PATH + "/response.txt";
+    
+    // Compute MoFREAK feature from file
+    start = clock();
     mofreak->computeMoFREAKFromFile(video_file, mofreak_path, true);
+    time_mofreak = clock()-start;
     
     // Compute BOW from MoFREAK and save .bow file
     // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep
-    BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
 	bool success;
     Mat bow_feature;
+    start = clock();
 	try
 	{
 		bow_feature = bow_rep.buildHistogram(mofreak_path, success);
@@ -967,9 +978,39 @@ void recognition(const char *video_file) {
 	{
 		std::cout << "Bag-of-words feature construction was unsuccessful.  Investigate." << std::endl;
 		exit(1);
-	}  
+	}      
+    time_BOW = clock() - start;
+    
+    // Using trained SVM model to predict label of input video
+    svm_node *x = new svm_node[bow_feature.cols+1];    
+	for (int col = 0; col < bow_feature.cols; ++col)
+	{
+        x[col].index = col+1;
+        x[col].value = (double)bow_feature.at<float>(0, col);
+	}
+    x[bow_feature.cols].index = -1;    
+    svm_model *model = svm_load_model(model_path.c_str());
+    start = clock();
+    double predict_label = svm_predict(model, x);
+    time_predict = clock() - start;
+    delete [] x;
+    cout << "label: " << getAction(predict_label) << endl;
+    /*
+    double accuracy = svm_guy.testModel(recognition_path, model_path, svm_out);
+    int act = 0;    
+    ifstream fin;
+    fin.open(svm_out);
+    while(fin >> act) {
+        cout << getAction(act) << endl;
+    }
+    fin.close();
+    */
+    cout << "Build MoFREAK duration: " << time_mofreak/(double)CLOCKS_PER_SEC << " seconds" << endl;
+    cout << "Compute BOW duration: " << time_BOW/(double)CLOCKS_PER_SEC << " seconds" << endl;
+    cout << "SVM predict duration: " << time_predict/(double)CLOCKS_PER_SEC << " seconds" << endl;
+    
     stringstream ss;
-	ss << (0 + 1) << " ";
+	ss << (0) << " "; // label for svm
 	for (int col = 0; col < bow_feature.cols; ++col)
 	{
 		ss << (int)(col + 1) << ":" << (float)bow_feature.at<float>(0, col) << " ";
@@ -984,23 +1025,6 @@ void recognition(const char *video_file) {
     fout.open(recognition_path);
     fout << current_line << endl;
     fout.close();
-    
-	// Using trained SVM model to predict label of input video
-    SVMInterface svm_guy;
-    string model_path = SVM_PATH + "/model.svm";
-    string test_path = recognition_path;
-    string svm_out = RECOG_PATH + "/response.txt";
-    
-    double accuracy = svm_guy.testModel(test_path, model_path, svm_out);
-    int act = 0;
-    ifstream fin;
-    fin.open(svm_out);
-    while(fin >> act) {
-        cout << getAction(act) << endl;
-    }
-    fin.close();
-    //summed_accuracy += accuracy;
-    
     // Play video
     VideoCapture video;
     video.open(video_file);
@@ -1020,8 +1044,22 @@ void recognition(const char *video_file) {
 
 void main(int argc, char *argv[])
 {
+	/*
+    VideoCapture cap(0);
+    if(!cap.isOpened()) {
+        cout << "No detected camera!" << endl;
+        return;
+    }
+    while(true) {
+        Mat frame;
+        cap >> frame;
+        imshow("Camera", frame);
+        if(waitKey(30) >= 0) break;
+    }
+    */
 	setParameters();
 	clock_t start, end;
+    start = end = clock();
 	mofreak = new MoFREAKUtilities(dataset);
 
 	if (state == DETECT_MOFREAK)
