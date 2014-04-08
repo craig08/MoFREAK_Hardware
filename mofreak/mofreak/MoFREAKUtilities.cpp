@@ -520,9 +520,6 @@ void MoFREAKUtilities::myFREAKcompute( const Mat& image, vector<KeyPoint>& keypo
         kpScaleIdx[k] = max( (int)(log(keypoints[k].size/FREAK_SMALLEST_KP_SIZE)*sizeCst+0.5) ,0);
         if( kpScaleIdx[k] >= NB_SCALES )
             kpScaleIdx[k] = NB_SCALES-1;
-        //cout << "keypoints.size: " << keypoints[k].size << " kpScaleIdx: " << kpScaleIdx[k] << endl;
-        //cout << "x: " << keypoints[k].pt.x << " y: " << keypoints[k].pt.y << " patternSizes[kpScaleIdx[k]]: " << patternSizes[kpScaleIdx[k]] << endl;
-        //check if the description at this specific position and scale fits inside the image
         if( keypoints[k].pt.x <= patternSizes[kpScaleIdx[k]] || 
             keypoints[k].pt.y <= patternSizes[kpScaleIdx[k]] ||
             keypoints[k].pt.x >= image.cols-patternSizes[kpScaleIdx[k]] ||
@@ -530,7 +527,6 @@ void MoFREAKUtilities::myFREAKcompute( const Mat& image, vector<KeyPoint>& keypo
            ) {
             keypoints.erase(kpBegin+k);
             kpScaleIdx.erase(ScaleIdxBegin+k);
-            //cout << "Erased!" << endl << endl;
         }
     }
 	duration_remove += clock()-start;
@@ -630,7 +626,8 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		duration_diff += clock()-start_diff;
 		//cv::imwrite("D:/project/action/sample_img/current_frame.png", current_frame);
 		//cv::imwrite("D:/project/action/sample_img/prev_frame.png", prev_frame);
-		//cv::imwrite("D:/project/action/sample_img/diff_img.png", diff_img);
+		sprintf(path, "D:/project/action/sample_img/diff_img/diff_%03d.png", frame_num);
+		cv::imwrite(path, diff_img);
 
 		vector<cv::KeyPoint> keypoints, diff_keypoints;
 		cv::Mat descriptors;
@@ -645,12 +642,13 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		start_detector = clock();
 		diff_detector->detect(diff_img, keypoints); 
 		duration_detector += clock()-start_detector;
-		/*
+        //keypoints.resize(2000);
+		
 		ofstream fout("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/keypoints");
 		for(auto keypt=keypoints.begin(); keypt!=keypoints.end(); ++keypt)
-			fout << keypt->pt.x << " " << keypt->pt.y << " " << keypt->size << endl;
+			fout << keypt->pt.x << " " << keypt->pt.y << " " << keypt->size << " " << keypt->response << endl;
 		fout.close();
-		*/
+		
 
 		// extract the FREAK descriptors efficiently over the whole frame
 		// For now, we are just computing the motion FREAK!  It seems to be giving better results.
@@ -670,13 +668,21 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		fout.close();
 		*/
 		//cout << "--------------------------------" << keypoints.size() << " detected features" << endl;
+        
+		start_suff = clock();
+        for(auto keypt = keypoints.begin(); keypt != keypoints.end();) {
+            if(!sufficientMotion(current_frame, prev_frame, keypt->pt.x, keypt->pt.y, keypt->size))
+                keypt=keypoints.erase(keypt);
+            else
+                ++keypt;
+        }
+        duration_suff += clock()-start_suff;
 		
 		Mat draw;
 		drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
 		sprintf(path, "D:/project/action/sample_img/draw_test/draw_after_extraction_%03d.png", frame_num);
-		imwrite(path, draw);
-		
-
+		imwrite(path, draw);  
+        
 		// for each detected keypoint
 		vector<cv::KeyPoint> current_frame_keypts;
 		unsigned char *pointer_to_descriptor_row = 0;
@@ -688,11 +694,11 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 			// only take points with sufficient motion.
 			int motion = 0;
 			
-			start_suff = clock();
-			bool suff = sufficientMotion(current_frame, prev_frame, keypt->pt.x, keypt->pt.y, keypt->size);
-			duration_suff += clock()-start_suff;
+			//start_suff = clock();
+			//bool suff = sufficientMotion(current_frame, prev_frame, keypt->pt.x, keypt->pt.y, keypt->size);
+			//duration_suff += clock()-start_suff;
 
-			if (suff)
+			//if (suff)
 			{
 				//cout << "feature: motion bytes: " << NUMBER_OF_BYTES_FOR_MOTION << endl;
 				//cout << "feature: app bytes: " << NUMBER_OF_BYTES_FOR_APPEARANCE << endl;
