@@ -62,6 +62,8 @@ string getAction(int act) {
             return "Running";
         case 6:
             return "Walking";
+        default:
+            return "Unknown";
     }
     return "";
 };
@@ -1048,6 +1050,7 @@ void recognition_online(const char *video_file) {
     //clock_t time_mofreak, time_BOW, time_predict;
     const int GAP_FOR_FRAME_DIFFERENCE = 5;
     const int ACCUMULATIVE_LENGTH = 50;
+    const int HISTOGRAM_STEP = 10;
     
     // Initialize file path
     string video_filename = path(video_file).filename().generic_string();
@@ -1080,6 +1083,10 @@ void recognition_online(const char *video_file) {
     Mat total_histogram = Mat::zeros(1, NUM_CLUSTERS, CV_32FC1);
     int total_N = 0;
     Mat curr_bow = Mat::zeros(1, NUM_CLUSTERS, CV_32FC1);
+    svm_model *model = svm_load_model(model_path.c_str());
+    svm_node *x = new svm_node[curr_bow.cols+1];  
+    double predict_label = 0.0;
+    int fps = capture.get(CV_CAP_PROP_FPS);
     
     while(true) {
         capture >> current_frame;
@@ -1099,7 +1106,6 @@ void recognition_online(const char *video_file) {
             else
                 ++keypt;
         }        
-        vector<cv::KeyPoint> current_frame_keypts;
 		unsigned char *pointer_to_descriptor_row = 0;
 		unsigned int keypoint_row = 0;
 		for (auto keypt = keypoints.begin(); keypt != keypoints.end(); ++keypt)
@@ -1140,7 +1146,6 @@ void recognition_online(const char *video_file) {
             ftr.motion_y = 0;
 
             mofreak->features.push_back(ftr);
-            current_frame_keypts.push_back(*keypt);
 			keypoint_row++;
             
             int best_match = bow_rep.bruteForceMatch(feature_vector);
@@ -1153,38 +1158,36 @@ void recognition_online(const char *video_file) {
 		frame_queue.pop();
 		++frame_num;
         histogram_queue.push(curr_histogram.clone());
-        ++queue_num;
         curr_histogram = Mat::zeros(1, NUM_CLUSTERS, CV_32FC1);
-        if(queue_num > ACCUMULATIVE_LENGTH) {
+        if(histogram_queue.size() > ACCUMULATIVE_LENGTH) {
             Mat temp = histogram_queue.front();
             histogram_queue.pop();
-            --queue_num;
             for(int i=0; i<NUM_CLUSTERS; ++i) {
                 total_histogram.at<float>(0, i) -= temp.at<float>(0, i);
                 total_N -= (int)temp.at<float>(0, i);
             }
-            for(int i=0; i<NUM_CLUSTERS; ++i)
-                curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;
-                    
-            // Compute BOW from MoFREAK and save .bow file
-            // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep
-            
-            svm_node *x = new svm_node[curr_bow.cols+1];    
-            for (int col = 0; col < curr_bow.cols; ++col)
-            {
-                x[col].index = col+1;
-                x[col].value = (double)curr_bow.at<float>(0, col);
+            ++queue_num;
+            if(queue_num > HISTOGRAM_STEP) {
+                queue_num = 1;
+                for(int i=0; i<NUM_CLUSTERS; ++i)
+                    curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;                        
+                // Compute BOW from MoFREAK and save .bow file
+                // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep                  
+                for (int col = 0; col < curr_bow.cols; ++col)
+                {
+                    x[col].index = col+1;
+                    x[col].value = (double)curr_bow.at<float>(0, col);
+                }
+                x[curr_bow.cols].index = -1;    
+                predict_label = svm_predict(model, x);
+                //cout << "Frame Number: " << frame_num << " label: " << getAction(predict_label) << endl;
             }
-            x[curr_bow.cols].index = -1;    
-            svm_model *model = svm_load_model(model_path.c_str());
-            double predict_label = svm_predict(model, x);
-            delete [] x;
-            //cout << "Frame Number: " << frame_num << " label: " << getAction(predict_label) << endl;
-            putText(current_frame, getAction(predict_label), cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
         }
+        putText(current_frame, getAction(predict_label), cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
         imshow("Test Video", current_frame);
-        waitKey(1);
+        waitKey(1000/fps);
 	} 
+    delete [] x;
 
     /*
     cout << "label: " << getAction(predict_label) << endl;
