@@ -37,7 +37,7 @@ public:
 	void setAppearanceDescriptor(unsigned int size, bool binary = false);	
     cv::Mat buildHistogram(std::string &file, bool &success);
 
-private:
+//private:
 	void computeHMDB51BagOfWords(string SVM_PATH, string MOFREAK_PATH, string METADATA_PATH);
 	void extractMetadata(std::string filename, int &action, int &group, int &clip_number);
 	void loadClusters();
