@@ -38,12 +38,12 @@ vector<int> possible_classes;
 std::deque<MoFREAKFeature> mofreak_ftrs;
 
 enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognition states
-	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION, RECOGNITION_ONLINE}; // these states are exclusive to TRECVID
+	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION, RECOGNITION_ONLINE, VIDEO_ONLINE}; // these states are exclusive to TRECVID
 
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
 
 int dataset = KTH; //KTH;//HMDB51;
-int state = RECOGNITION_ONLINE;
+int state = VIDEO_ONLINE;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -1249,6 +1249,180 @@ void recognition_online(const char *video_file) {
     */
 }
 
+void video_online() {
+    //clock_t start = clock();
+    //clock_t time_mofreak, time_BOW, time_predict;
+    const int GAP_FOR_FRAME_DIFFERENCE = 5;
+    const int ACCUMULATIVE_LENGTH = 60;
+    const int HISTOGRAM_STEP = 10;
+    
+    // Initialize file path
+    //string video_filename = path(video_file).filename().generic_string();
+    //string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
+    BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
+    SVMInterface svm_guy;
+    string model_path = SVM_PATH + "/model.svm";    
+    
+    VideoCapture capture(0);
+    if(!capture.isOpened()) {
+        cout << "No detected camera!" << endl;
+        return;
+    }
+    
+    /*
+    while(true) {
+        Mat frame;
+        capture >> frame;
+        imshow("Camera", frame);
+        if(waitKey(30) >= 0) break;
+    }
+    */
+    
+    Mat current_frame;
+    Mat prev_frame;
+    queue<Mat> frame_queue;
+    int queue_num = 1;
+	for (unsigned int i = 0; i < GAP_FOR_FRAME_DIFFERENCE; ++i)
+	{
+		capture >> prev_frame; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
+		cv::cvtColor(prev_frame, prev_frame, CV_BGR2GRAY);
+		frame_queue.push(prev_frame.clone());
+	}
+	prev_frame = frame_queue.front();
+	frame_queue.pop();
+    unsigned int frame_num = GAP_FOR_FRAME_DIFFERENCE - 1;    
+    
+    queue<Mat> histogram_queue;
+    Mat curr_histogram = Mat::zeros(1, NUM_CLUSTERS, CV_32FC1);
+    Mat total_histogram = Mat::zeros(1, NUM_CLUSTERS, CV_32FC1);
+    int total_N = 0;
+    Mat curr_bow = Mat::zeros(1, NUM_CLUSTERS, CV_32FC1);
+    svm_model *model = svm_load_model(model_path.c_str());
+    svm_node *x = new svm_node[curr_bow.cols+1];  
+    double predict_label = 0.0;
+    int fps = 30;// capture.get(CV_CAP_PROP_FPS);
+    
+    while(true) {
+        clock_t start = clock();
+        clock_t time_frame;
+        capture >> current_frame;
+        if (current_frame.empty())	
+            break;
+        cvtColor(current_frame ,current_frame, CV_BGR2GRAY);
+        Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
+        absdiff(current_frame, prev_frame, diff_img);
+        vector<KeyPoint> keypoints, diff_keypoints;
+        Mat descriptors;
+        SurfFeatureDetector *diff_detector = new SurfFeatureDetector(30);
+        diff_detector->detect(diff_img, keypoints);
+        mofreak->myFREAKcompute(diff_img, keypoints, descriptors);
+        for(auto keypt = keypoints.begin(); keypt != keypoints.end();) {
+            if(!mofreak->sufficientMotion(current_frame, prev_frame, keypt->pt.x, keypt->pt.y, keypt->size))
+                keypt=keypoints.erase(keypt);
+            else
+                ++keypt;
+        }        
+		unsigned char *pointer_to_descriptor_row = 0;
+		unsigned int keypoint_row = 0;
+        //#pragma omp parallel
+        {
+		for (auto keypt = keypoints.begin(); keypt != keypoints.end(); ++keypt)
+		{
+			pointer_to_descriptor_row = descriptors.ptr<unsigned char>(keypoint_row);
+			int motion = 0;
+            //MoFREAKFeature ftr(mofreak->NUMBER_OF_BYTES_FOR_MOTION, mofreak->NUMBER_OF_BYTES_FOR_APPEARANCE);
+            //ftr.frame_number = frame_num;
+            //ftr.scale = keypt->size;
+            //ftr.x = keypt->pt.x;
+            //ftr.y = keypt->pt.y;
+            Mat feature_vector(1, FEATURE_DIMENSIONALITY, CV_8U);
+
+            for (unsigned i = 0; i < mofreak->NUMBER_OF_BYTES_FOR_APPEARANCE; ++i)
+            {
+                //ftr.appearance[i] = pointer_to_descriptor_row[i];
+                feature_vector.at<unsigned char>(0, i) = pointer_to_descriptor_row[i];
+            }
+
+            vector<unsigned int> motion_desc;
+            
+            mofreak->extractMotionByMotionInterchangePatterns(current_frame, prev_frame, motion_desc, keypt->size, keypt->pt.x, keypt->pt.y);
+
+            for (unsigned i = 0; i < mofreak->NUMBER_OF_BYTES_FOR_MOTION; ++i)
+            {
+                //ftr.motion[i] = motion_desc[i];
+                feature_vector.at<unsigned char>(0, mofreak->NUMBER_OF_BYTES_FOR_APPEARANCE+i) = motion_desc[i];
+            }
+
+            //int action, person, video_number;
+            //mofreak->readMetadata(video_filename, action, video_number, person);
+            //
+            //ftr.action = action;
+            //ftr.video_number = video_number;
+            //ftr.person = person;
+            //
+            //ftr.motion_x = 0;
+            //ftr.motion_y = 0;
+
+            //mofreak->features.push_back(ftr);
+			keypoint_row++;
+            
+            int best_match = bow_rep.bruteForceMatch(feature_vector);
+            curr_histogram.at<float>(0, best_match) += 1;
+            total_histogram.at<float>(0, best_match) += 1;
+            total_N += 1;
+        }
+        }        
+		frame_queue.push(current_frame.clone());
+		prev_frame = frame_queue.front();
+		frame_queue.pop();
+		++frame_num;
+        histogram_queue.push(curr_histogram.clone());
+        curr_histogram = Mat::zeros(1, NUM_CLUSTERS, CV_32FC1);
+        if(histogram_queue.size() > ACCUMULATIVE_LENGTH) {
+            Mat temp = histogram_queue.front();
+            histogram_queue.pop();
+            for(int i=0; i<NUM_CLUSTERS; ++i) {
+                total_histogram.at<float>(0, i) -= temp.at<float>(0, i);
+                total_N -= (int)temp.at<float>(0, i);
+            }
+            ++queue_num;
+            if(queue_num > HISTOGRAM_STEP) {
+                queue_num = 1;
+                for(int i=0; i<NUM_CLUSTERS; ++i)
+                    curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;                        
+                // Compute BOW from MoFREAK and save .bow file
+                // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep                                 
+                for (int col = 0; col < curr_bow.cols; ++col)
+                {
+                    x[col].index = col+1;
+                    x[col].value = (double)curr_bow.at<float>(0, col);
+                }
+                x[curr_bow.cols].index = -1;    
+                predict_label = svm_predict(model, x);
+                cout << "Frame Number: " << frame_num << " label: " << getAction(predict_label) << endl;
+                
+                 
+                Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
+                normalize(total_histogram, curr_bow, 0, hisImage.rows, NORM_MINMAX);
+                
+                for( int i = 0; i < NUM_CLUSTERS; i++ )
+                    rectangle( hisImage, Point(i, hisImage.rows), Point((i+1), hisImage.rows - cvRound(curr_bow.at<float>(i))), Scalar::all(0), -1, 8, 0 );
+                imshow("histogram", hisImage);
+            }
+        }
+        putText(current_frame, getAction(predict_label), cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
+        imshow("Test Video", current_frame);
+        time_frame = clock()-start;
+        //cout  << "frame #: " << frame_num << " frame time: " << time_frame << endl;
+        if(1000/fps-time_frame > 0)
+            waitKey(1000/fps-time_frame);
+        else
+            waitKey(1);
+	} 
+    delete [] x;
+}
+
+
 void main(int argc, char *argv[])
 {
 	/*
@@ -1347,6 +1521,12 @@ void main(int argc, char *argv[])
             return;
         }
         recognition_online(argv[1]);
+		end = clock();
+    }
+    else if (state == VIDEO_ONLINE)
+    {
+		start = clock();
+        video_online();
 		end = clock();
     }
 	// TRECVID cases
