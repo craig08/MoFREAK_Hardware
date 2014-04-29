@@ -1049,7 +1049,7 @@ void recognition_online(const char *video_file) {
     //clock_t start = clock();
     //clock_t time_mofreak, time_BOW, time_predict;
     const int GAP_FOR_FRAME_DIFFERENCE = 5;
-    const int ACCUMULATIVE_LENGTH = 50;
+    const int ACCUMULATIVE_LENGTH = 60;
     const int HISTOGRAM_STEP = 10;
     
     // Initialize file path
@@ -1089,9 +1089,11 @@ void recognition_online(const char *video_file) {
     int fps = capture.get(CV_CAP_PROP_FPS);
     
     while(true) {
+        clock_t start = clock();
+        clock_t time_frame;
         capture >> current_frame;
-            if (current_frame.empty())	
-                break;
+        if (current_frame.empty())	
+            break;
         cvtColor(current_frame ,current_frame, CV_BGR2GRAY);
         Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
         absdiff(current_frame, prev_frame, diff_img);
@@ -1108,6 +1110,8 @@ void recognition_online(const char *video_file) {
         }        
 		unsigned char *pointer_to_descriptor_row = 0;
 		unsigned int keypoint_row = 0;
+        //#pragma omp parallel
+        {
 		for (auto keypt = keypoints.begin(); keypt != keypoints.end(); ++keypt)
 		{
 			pointer_to_descriptor_row = descriptors.ptr<unsigned char>(keypoint_row);
@@ -1152,7 +1156,8 @@ void recognition_online(const char *video_file) {
             curr_histogram.at<float>(0, best_match) += 1;
             total_histogram.at<float>(0, best_match) += 1;
             total_N += 1;
-        }     
+        }
+        }        
 		frame_queue.push(current_frame.clone());
 		prev_frame = frame_queue.front();
 		frame_queue.pop();
@@ -1172,7 +1177,7 @@ void recognition_online(const char *video_file) {
                 for(int i=0; i<NUM_CLUSTERS; ++i)
                     curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;                        
                 // Compute BOW from MoFREAK and save .bow file
-                // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep                  
+                // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep                                 
                 for (int col = 0; col < curr_bow.cols; ++col)
                 {
                     x[col].index = col+1;
@@ -1180,12 +1185,25 @@ void recognition_online(const char *video_file) {
                 }
                 x[curr_bow.cols].index = -1;    
                 predict_label = svm_predict(model, x);
-                //cout << "Frame Number: " << frame_num << " label: " << getAction(predict_label) << endl;
+                cout << "Frame Number: " << frame_num << " label: " << getAction(predict_label) << endl;
+                
+                 
+                Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
+                normalize(total_histogram, curr_bow, 0, hisImage.rows, NORM_MINMAX);
+                
+                for( int i = 0; i < NUM_CLUSTERS; i++ )
+                    rectangle( hisImage, Point(i, hisImage.rows), Point((i+1), hisImage.rows - cvRound(curr_bow.at<float>(i))), Scalar::all(0), -1, 8, 0 );
+                imshow("histogram", hisImage);
             }
         }
         putText(current_frame, getAction(predict_label), cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
         imshow("Test Video", current_frame);
-        waitKey(1000/fps);
+        time_frame = clock()-start;
+        //cout  << "frame #: " << frame_num << " frame time: " << time_frame << endl;
+        if(1000/fps-time_frame > 0)
+            waitKey(1000/fps-time_frame);
+        else
+            waitKey(1);
 	} 
     delete [] x;
 
