@@ -1101,13 +1101,13 @@ void recognition_online(const char *video_file) {
         Mat descriptors;
         SurfFeatureDetector *diff_detector = new SurfFeatureDetector(30);
         diff_detector->detect(diff_img, keypoints);
-        mofreak->myFREAKcompute(diff_img, keypoints, descriptors);
         for(auto keypt = keypoints.begin(); keypt != keypoints.end();) {
             if(!mofreak->sufficientMotion(current_frame, prev_frame, keypt->pt.x, keypt->pt.y, keypt->size))
                 keypt=keypoints.erase(keypt);
             else
                 ++keypt;
         }        
+        mofreak->myFREAKcompute(diff_img, keypoints, descriptors);
 		unsigned char *pointer_to_descriptor_row = 0;
 		unsigned int keypoint_row = 0;
         //#pragma omp parallel
@@ -1268,6 +1268,10 @@ void video_online() {
         cout << "No detected camera!" << endl;
         return;
     }
+    else {
+        cout << "Camera Resolution: " << capture.get(CV_CAP_PROP_FRAME_WIDTH) << "x" << capture.get(CV_CAP_PROP_FRAME_HEIGHT) << endl;
+        cout << "Frame Format: " << capture.get(CV_CAP_PROP_FORMAT) << endl;
+    }
     
     /*
     while(true) {
@@ -1285,7 +1289,7 @@ void video_online() {
 	for (unsigned int i = 0; i < GAP_FOR_FRAME_DIFFERENCE; ++i)
 	{
 		capture >> prev_frame; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
-		cv::cvtColor(prev_frame, prev_frame, CV_BGR2GRAY);
+		cv::cvtColor(prev_frame, prev_frame, CV_BGR2GRAY); //RGB?BGR?
 		frame_queue.push(prev_frame.clone());
 	}
 	prev_frame = frame_queue.front();
@@ -1315,13 +1319,13 @@ void video_online() {
         Mat descriptors;
         SurfFeatureDetector *diff_detector = new SurfFeatureDetector(30);
         diff_detector->detect(diff_img, keypoints);
-        mofreak->myFREAKcompute(diff_img, keypoints, descriptors);
         for(auto keypt = keypoints.begin(); keypt != keypoints.end();) {
             if(!mofreak->sufficientMotion(current_frame, prev_frame, keypt->pt.x, keypt->pt.y, keypt->size))
                 keypt=keypoints.erase(keypt);
             else
                 ++keypt;
         }        
+        mofreak->myFREAKcompute(diff_img, keypoints, descriptors);
 		unsigned char *pointer_to_descriptor_row = 0;
 		unsigned int keypoint_row = 0;
         //#pragma omp parallel

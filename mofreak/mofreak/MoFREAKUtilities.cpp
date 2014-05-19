@@ -650,13 +650,6 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		fout.close();
 		
 
-		// extract the FREAK descriptors efficiently over the whole frame
-		// For now, we are just computing the motion FREAK!  It seems to be giving better results.
-		//cv::FREAK extractor;
-		start_extractor = clock();
-		//extractor.compute(diff_img, keypoints, descriptors);
-		myFREAKcompute(diff_img, keypoints, descriptors);
-		duration_extractor += clock()-start_extractor;
 		/*
 		fout.open("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/descriptors");
 		for(int y=0; y<descriptors.rows; ++y) {
@@ -677,6 +670,13 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
                 ++keypt;
         }
         duration_suff += clock()-start_suff;
+		// extract the FREAK descriptors efficiently over the whole frame
+		// For now, we are just computing the motion FREAK!  It seems to be giving better results.
+		//cv::FREAK extractor;
+		start_extractor = clock();
+		//extractor.compute(diff_img, keypoints, descriptors);
+		myFREAKcompute(diff_img, keypoints, descriptors);
+		duration_extractor += clock()-start_extractor;
 		
 		Mat draw;
 		drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
