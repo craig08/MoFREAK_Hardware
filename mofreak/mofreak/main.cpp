@@ -26,8 +26,9 @@ using namespace cv;
 
 bool DISTRIBUTED = false;
 
-string MOSIFT_DIR, MOFREAK_PATH, VIDEO_PATH, SVM_PATH, METADATA_PATH, RECOG_PATH, RECOG_ONLINE_PATH; // for file structure
+string MOSIFT_DIR, MOFREAK_PATH, VIDEO_PATH, SVM_PATH, METADATA_PATH, RECOG_PATH, RECOG_ONLINE_PATH, TRAINING_PATH; // for file structure
 string MOFREAK_NEG_PATH, MOFREAK_POS_PATH; // these are TRECVID exclusive
+vector<string> labels;
 
 unsigned int NUM_MOTION_BYTES = 8;
 unsigned int NUM_APPEARANCE_BYTES = 8;
@@ -38,35 +39,25 @@ vector<int> possible_classes;
 std::deque<MoFREAKFeature> mofreak_ftrs;
 
 enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognition states
-	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION, RECOGNITION_ONLINE, VIDEO_ONLINE}; // these states are exclusive to TRECVID
+	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION, RECOGNITION_ONLINE, VIDEO_ONLINE, TRAINING}; // these states are exclusive to TRECVID
 
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
 
 int dataset = KTH; //KTH;//HMDB51;
-int state = VIDEO_ONLINE;
+int state = RECOGNITION_ONLINE;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
-
-string getAction(int act) {
-    switch(act) {
-        case 1:
-            return "Boxing";
-        case 2:
-            return "Handclapping";
-        case 3:
-            return "Handwaving";
-        case 4:
-            return "Jogging";
-        case 5:
-            return "Running";
-        case 6:
-            return "Walking";
-        default:
-            return "Unknown";
-    }
-    return "";
-};
+void initialize_label() {
+    ifstream fin(SVM_PATH+"labels.txt");
+    if(!fin) cout << "No labels map!!" << endl;
+    int clusters, classes, groups;
+    fin >> NUM_CLUSTERS >> NUM_CLASSES >> NUMBER_OF_GROUPS;
+    string action;
+    labels.push_back("");
+    while(fin >> action)
+        labels.push_back(action);
+}
 
 struct Detection
 {
@@ -125,6 +116,7 @@ void setParameters()
 		SVM_PATH = "D:/project/action/dataset/KTH/svm/";
 		RECOG_PATH = "D:/project/action/dataset/KTH/recognition/";
 		RECOG_ONLINE_PATH = "D:/project/action/dataset/KTH/recognition_online/";
+        TRAINING_PATH = "D:/project/action/dataset/KTH/training/";
 		METADATA_PATH = "";
 	}
 
@@ -232,7 +224,7 @@ void cluster()
 			mofreak->clearFeatures();
 		}
 	}
-	clustering.writeClusters(true);
+	clustering.writeClusters(false); // the input argument stands for appending existing file
 }
 
 /*
@@ -591,7 +583,7 @@ void pickClusters()
 	data_pts.release();
 }
 
-// for this, organize mofreak files into pos + neg folders and do them separately.
+/* for this, organize mofreak files into pos + neg folders and do them separately.
 // use openmp to parallelize each file's BOW stuff.
 // give each one it's own libsvm file to output ot, so we don't get any conflicts.
 // we will merge at the end with python.
@@ -600,7 +592,7 @@ void pickClusters()
 // We can also use this to get our SVM responses to mean-shift away.
 // ***********
 // Exclusively used for the TRECVID scenario now,
-// any remaining examples are deprecated. [TODO]
+ any remaining examples are deprecated. [TODO]*/
 void computeBOWHistograms(bool positive_examples)
 {
 	// gather all files int vector<string> mofreak_files
@@ -951,6 +943,8 @@ void recognition(const char *video_file) {
     clock_t time_mofreak, time_BOW, time_predict;
     
     // Initialize file path
+    SVM_PATH = TRAINING_PATH;
+    initialize_label();
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
@@ -997,17 +991,7 @@ void recognition(const char *video_file) {
     double predict_label = svm_predict(model, x);
     time_predict = clock() - start;
     delete [] x;
-    cout << "label: " << getAction(predict_label) << endl;
-    /*
-    double accuracy = svm_guy.testModel(recognition_path, model_path, svm_out);
-    int act = 0;    
-    ifstream fin;
-    fin.open(svm_out);
-    while(fin >> act) {
-        cout << getAction(act) << endl;
-    }
-    fin.close();
-    */
+    cout << "label: " << labels[predict_label] << endl;
     cout << "Build MoFREAK duration: " << time_mofreak/(double)CLOCKS_PER_SEC << " seconds" << endl;
     cout << "Compute BOW duration: " << time_BOW/(double)CLOCKS_PER_SEC << " seconds" << endl;
     cout << "SVM predict duration: " << time_predict/(double)CLOCKS_PER_SEC << " seconds" << endl;
@@ -1053,11 +1037,14 @@ void recognition_online(const char *video_file) {
     const int HISTOGRAM_STEP = 10;
     
     // Initialize file path
+    SVM_PATH = TRAINING_PATH;
+    initialize_label();
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
     SVMInterface svm_guy;
     string model_path = SVM_PATH + "/model.svm";
+    ofstream fout;
     
     VideoCapture capture;
     capture.open(video_file);
@@ -1175,7 +1162,7 @@ void recognition_online(const char *video_file) {
             if(queue_num > HISTOGRAM_STEP) {
                 queue_num = 1;
                 for(int i=0; i<NUM_CLUSTERS; ++i)
-                    curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;                        
+                    curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;
                 // Compute BOW from MoFREAK and save .bow file
                 // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep                                 
                 for (int col = 0; col < curr_bow.cols; ++col)
@@ -1185,7 +1172,7 @@ void recognition_online(const char *video_file) {
                 }
                 x[curr_bow.cols].index = -1;    
                 predict_label = svm_predict(model, x);
-                cout << "Frame Number: " << frame_num << " label: " << getAction(predict_label) << endl;
+                cout << "Frame Number: " << frame_num << " label: " << labels[predict_label] << endl;
                 
                  
                 Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
@@ -1196,7 +1183,7 @@ void recognition_online(const char *video_file) {
                 imshow("histogram", hisImage);
             }
         }
-        putText(current_frame, getAction(predict_label), cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
+        putText(current_frame, labels[predict_label], cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
         imshow("Test Video", current_frame);
         time_frame = clock()-start;
         //cout  << "frame #: " << frame_num << " frame time: " << time_frame << endl;
@@ -1208,7 +1195,7 @@ void recognition_online(const char *video_file) {
     delete [] x;
 
     /*
-    cout << "label: " << getAction(predict_label) << endl;
+    cout << "label: " << labels[predict_label] << endl;
     cout << "Build MoFREAK duration: " << time_mofreak/(double)CLOCKS_PER_SEC << " seconds" << endl;
     cout << "Compute BOW duration: " << time_BOW/(double)CLOCKS_PER_SEC << " seconds" << endl;
     cout << "SVM predict duration: " << time_predict/(double)CLOCKS_PER_SEC << " seconds" << endl;
@@ -1257,6 +1244,8 @@ void video_online() {
     const int HISTOGRAM_STEP = 10;
     
     // Initialize file path
+    SVM_PATH = TRAINING_PATH;
+    initialize_label();
     //string video_filename = path(video_file).filename().generic_string();
     //string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
@@ -1403,7 +1392,7 @@ void video_online() {
                 }
                 x[curr_bow.cols].index = -1;    
                 predict_label = svm_predict(model, x);
-                cout << "Frame Number: " << frame_num << " label: " << getAction(predict_label) << endl;
+                cout << "Frame Number: " << frame_num << " label: " << labels[predict_label] << endl;
                 
                  
                 Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
@@ -1414,7 +1403,7 @@ void video_online() {
                 imshow("histogram", hisImage);
             }
         }
-        putText(current_frame, getAction(predict_label), cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
+        putText(current_frame, labels[predict_label], cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
         imshow("Test Video", current_frame);
         time_frame = clock()-start;
         //cout  << "frame #: " << frame_num << " frame time: " << time_frame << endl;
@@ -1426,22 +1415,31 @@ void video_online() {
     delete [] x;
 }
 
+void training() {
+    SVM_PATH = TRAINING_PATH;
+    string model_path = SVM_PATH + "model.svm";
+    string labels_path = SVM_PATH + "labels.txt";
+    SVMInterface svm_guy;
+    
+    vector<string> actions;
+    directory_iterator end_iter;
+    for (directory_iterator dir_iter(VIDEO_PATH); dir_iter != end_iter; ++dir_iter)
+        if(is_directory(dir_iter->status())) 
+            actions.push_back(dir_iter->path().filename().generic_string());
+    ofstream fout(labels_path);
+    fout << actions.size()*100 << " " << actions.size() << " " << "1";
+    for(auto it=actions.begin(); it!=actions.end(); ++it)
+        fout << endl << *it;
+    fout.close();
+    
+    computeMoFREAKFiles();
+    cluster();
+    computeBOWRepresentation();
+    svm_guy.trainModel(SVM_PATH + "1.test", model_path);
+}
 
 void main(int argc, char *argv[])
 {
-	/*
-    VideoCapture cap(0);
-    if(!cap.isOpened()) {
-        cout << "No detected camera!" << endl;
-        return;
-    }
-    while(true) {
-        Mat frame;
-        cap >> frame;
-        imshow("Camera", frame);
-        if(waitKey(30) >= 0) break;
-    }
-    */
 	setParameters();
 	clock_t start, end;
     start = end = clock();
@@ -1532,6 +1530,12 @@ void main(int argc, char *argv[])
 		start = clock();
         video_online();
 		end = clock();
+    }
+    else if (state == TRAINING)
+    {
+        start = clock();
+        training();
+        end = clock();
     }
 	// TRECVID cases
 	else if (state == PICK_CLUSTERS)
