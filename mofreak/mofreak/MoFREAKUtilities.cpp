@@ -4,7 +4,6 @@
 using namespace cv;
 using namespace std;
 #include <bitset>
-Size newsize1(320, 240);
 MoFREAKUtilities::MoFREAKUtilities(int dset)
 {
 	dataset = dset;
@@ -595,15 +594,14 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 	}
 
 	cout << "# of frames: " << capture.get(CV_CAP_PROP_FRAME_COUNT) << endl;
-	cv::Mat current_frame_temp, current_frame(newsize1, CV_8U);
-	cv::Mat prev_frame_temp, prev_frame(newsize1, CV_8U);
+	cv::Mat current_frame;
+	cv::Mat prev_frame;
 
 	std::queue<cv::Mat> frame_queue;
 	for (unsigned int i = 0; i < GAP_FOR_FRAME_DIFFERENCE; ++i)
 	{
-		capture >> prev_frame_temp; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
-		cv::cvtColor(prev_frame_temp, prev_frame_temp, CV_BGR2GRAY);
-        resize(prev_frame_temp, prev_frame, newsize1);
+		capture >> prev_frame; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
+		cv::cvtColor(prev_frame, prev_frame, CV_BGR2GRAY);
 		frame_queue.push(prev_frame.clone());
 	}
 	prev_frame = frame_queue.front();
@@ -613,13 +611,12 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 	
 	while (true) // remember to comment out break
 	{
-		capture >> current_frame_temp;
-		if (current_frame_temp.empty())	
+		capture >> current_frame;
+		if (current_frame.empty())	
 		{
 			break;
 		}
-		cv::cvtColor(current_frame_temp ,current_frame_temp, CV_BGR2GRAY);
-        resize(current_frame_temp, current_frame, newsize1);
+		cv::cvtColor(current_frame, current_frame, CV_BGR2GRAY);
 
 		// compute the difference image for use in later computations.
 		cv::Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
@@ -633,18 +630,24 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 
 		vector<cv::KeyPoint> keypoints, diff_keypoints;
 		cv::Mat descriptors;
-		
 		// detect all keypoints.
 		//cv::BriskFeatureDetector *detector = new cv::BriskFeatureDetector(30);
 		//cv::BriskFeatureDetector *diff_detector = new cv::BriskFeatureDetector(30); 
-		//BRISK *diff_detector = new BRISK(30); 
-		cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
+		BRISK *diff_detector = new BRISK(30); 
+		//cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
 
 		//detector->detect(current_frame, keypoints);
 		start_detector = clock();
 		diff_detector->detect(diff_img, keypoints); 
 		duration_detector += clock()-start_detector;
+        delete diff_detector;
         //keypoints.resize(2000);
+        /*
+		Mat draw;
+		drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+		sprintf(path, "D:/project/action/sample_img/draw_test/draw_before_extraction_%03d.png", frame_num);
+		imwrite(path, draw);  
+		
 		
 		ofstream fout("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/keypoints");
 		for(auto keypt=keypoints.begin(); keypt!=keypoints.end(); ++keypt)
@@ -652,7 +655,6 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		fout.close();
 		
 
-		/*
 		fout.open("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/descriptors");
 		for(int y=0; y<descriptors.rows; ++y) {
 			for(int x=0; x<descriptors.cols; ++x) {
@@ -680,10 +682,11 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		myFREAKcompute(diff_img, keypoints, descriptors);
 		duration_extractor += clock()-start_extractor;
 		
-		Mat draw;
+		/*Mat draw;
 		drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
 		sprintf(path, "D:/project/action/sample_img/draw_test/draw_after_extraction_%03d.png", frame_num);
 		imwrite(path, draw);  
+        */
         
 		// for each detected keypoint
 		vector<cv::KeyPoint> current_frame_keypts;

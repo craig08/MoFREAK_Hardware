@@ -41,7 +41,7 @@ vector<int> possible_classes;
 std::deque<MoFREAKFeature> mofreak_ftrs;
 
 enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognition states
-	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION, RECOGNITION_ONLINE, VIDEO_ONLINE, TRAINING}; // these states are exclusive to TRECVID
+	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION, RECOGNITION_ONLINE, VIDEO_ONLINE, TRAINING, CLASSIFICATION}; // these states are exclusive to TRECVID
 
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
 
@@ -392,15 +392,22 @@ double classify()
 	}
 
 	// evaluate the SVM with leave-one-out.
-	std::string results_file = SVM_PATH;
+    string results_file = SVM_PATH;
 	results_file.append("/svm_results.txt");
 	ofstream output_file(results_file);
-
-	string model_file_name = SVM_PATH;
-	model_file_name.append("/model.svm");
-
-	string svm_out = SVM_PATH;
-	svm_out.append("/responses.txt");
+    char name[1024];
+    
+    vector<string> model_file_name(training_files.size(), SVM_PATH);
+    for(int i=0; i<model_file_name.size(); ++i) {
+        sprintf(name, "/model_%d.svm", i+1);
+        model_file_name[i] += name;
+    }
+    
+    vector<string> svm_out(training_files.size(), SVM_PATH);
+    for(int i=0; i<svm_out.size(); ++i) {
+        sprintf(name, "/response_%d.txt", i+1);
+        svm_out[i] += name;
+    }
 
 	// confusion matrix.
 	cv::Mat confusion_matrix = cv::Mat::zeros(NUM_CLASSES, NUM_CLASSES, CV_32F);
@@ -415,18 +422,18 @@ double classify()
 
 		// build model.
 		string training_file = training_files[i];
-		svm_guy.trainModel(training_file, model_file_name);
+		svm_guy.trainModel(training_file, model_file_name[i]);
 
 		// get accuracy.
 		string test_filename = testing_files[i];
-		double accuracy = svm_guy.testModel(test_filename, model_file_name, svm_out);
+		double accuracy = svm_guy.testModel(test_filename, model_file_name[i], svm_out[i]);
 		summed_accuracy += accuracy;
 
 		// update confusion matrix.
 		// get svm responses.
 		vector<int> responses;
 
-		ifstream response_file(svm_out);
+		ifstream response_file(svm_out[i]);
 		string line;
 		while (std::getline(response_file, line))
 		{
@@ -1512,6 +1519,23 @@ void main(int argc, char *argv[])
 		cout << "deleted" << endl;
 		end = clock();
 	}
+    else if (state == CLASSIFICATION) {
+        clock_t start1 = clock();
+        cluster();
+        clock_t end1 = clock();
+        cout << "#clustering: " << (end1 - start1)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
+        
+        start1 = clock();
+        computeBOWRepresentation();
+        end1 = clock();
+        cout << "#compute BOW: " << (end1 - start1)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
+
+        
+        start1 = clock();
+        double avg_acc = classify();
+        end1 = clock();
+        cout << "#classify: " << (end1 - start1)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;    
+    }
     else if (state == RECOGNITION)
     {
 		start = clock();
