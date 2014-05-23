@@ -608,7 +608,8 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 	frame_queue.pop();
 
 	unsigned int frame_num = GAP_FOR_FRAME_DIFFERENCE - 1;
-	
+	BRISK *diff_detector = new BRISK(30); 
+    //cv::BriskFeatureDetector *diff_detector = new cv::BriskFeatureDetector(30); 
 	while (true) // remember to comment out break
 	{
 		capture >> current_frame;
@@ -625,22 +626,21 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		duration_diff += clock()-start_diff;
 		//cv::imwrite("D:/project/action/sample_img/current_frame.png", current_frame);
 		//cv::imwrite("D:/project/action/sample_img/prev_frame.png", prev_frame);
-		sprintf(path, "D:/project/action/sample_img/diff_img/diff_%03d.png", frame_num);
-		cv::imwrite(path, diff_img);
+		//sprintf(path, "D:/project/action/sample_img/diff_img/diff_%03d.png", frame_num);
+		//cv::imwrite(path, diff_img);
 
 		vector<cv::KeyPoint> keypoints, diff_keypoints;
 		cv::Mat descriptors;
 		// detect all keypoints.
 		//cv::BriskFeatureDetector *detector = new cv::BriskFeatureDetector(30);
 		//cv::BriskFeatureDetector *diff_detector = new cv::BriskFeatureDetector(30); 
-		BRISK *diff_detector = new BRISK(30); 
+		//BRISK *diff_detector = new BRISK(30); 
 		//cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
 
 		//detector->detect(current_frame, keypoints);
 		start_detector = clock();
 		diff_detector->detect(diff_img, keypoints); 
 		duration_detector += clock()-start_detector;
-        delete diff_detector;
         //keypoints.resize(2000);
         /*
 		Mat draw;
@@ -649,10 +649,10 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		imwrite(path, draw);  
 		
 		
-		ofstream fout("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/keypoints");
-		for(auto keypt=keypoints.begin(); keypt!=keypoints.end(); ++keypt)
-			fout << keypt->pt.x << " " << keypt->pt.y << " " << keypt->size << " " << keypt->response << endl;
-		fout.close();
+		//ofstream fout("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/keypoints");
+		//for(auto keypt=keypoints.begin(); keypt!=keypoints.end(); ++keypt)
+		//	fout << keypt->pt.x << " " << keypt->pt.y << " " << keypt->size << " " << keypt->response << endl;
+		//fout.close();
 		
 
 		fout.open("D:/project/master/MoFREAK_Hardware/mofreak/sample_data/descriptors");
@@ -755,6 +755,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		frame_queue.pop();
 		frame_num++;
 	}
+    delete diff_detector;
 
 	// in the end, print the mofreak file and reset the features for a new file.
 	cout << "Writing this mofreak file: " << mofreak_filename << endl;
