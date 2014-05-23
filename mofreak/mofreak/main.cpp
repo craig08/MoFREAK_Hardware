@@ -29,6 +29,8 @@ bool DISTRIBUTED = false;
 string MOSIFT_DIR, MOFREAK_PATH, VIDEO_PATH, SVM_PATH, METADATA_PATH, RECOG_PATH, RECOG_ONLINE_PATH, TRAINING_PATH; // for file structure
 string MOFREAK_NEG_PATH, MOFREAK_POS_PATH; // these are TRECVID exclusive
 vector<string> labels;
+Size newsize(320, 240);
+const bool down_sample=true;
 
 unsigned int NUM_MOTION_BYTES = 8;
 unsigned int NUM_APPEARANCE_BYTES = 8;
@@ -44,7 +46,7 @@ enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognitio
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
 
 int dataset = KTH; //KTH;//HMDB51;
-int state = RECOGNITION_ONLINE;
+int state = DETECTION_TO_CLASSIFICATION;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -112,7 +114,7 @@ void setParameters()
 		// structural folder info.
 		MOSIFT_DIR = "C:/data/kth/mosift/";
 		MOFREAK_PATH = "D:/project/action/dataset/KTH/mofreak"; 
-		VIDEO_PATH = "D:/project/action/dataset/KTH/test";
+		VIDEO_PATH = "D:/project/action/dataset/KTH/original";
 		SVM_PATH = "D:/project/action/dataset/KTH/svm/";
 		RECOG_PATH = "D:/project/action/dataset/KTH/recognition/";
 		RECOG_ONLINE_PATH = "D:/project/action/dataset/KTH/recognition_online/";
@@ -1051,14 +1053,15 @@ void recognition_online(const char *video_file) {
 	if (!capture.isOpened())
 		cout << "Could not open file: " << video_filename << endl;
     
-    Mat current_frame;
-    Mat prev_frame;
+    Mat current_frame(newsize,CV_8U), current_frame_temp;
+    Mat prev_frame(newsize,CV_8U), prev_frame_temp;
     queue<Mat> frame_queue;
     int queue_num = 1;
 	for (unsigned int i = 0; i < GAP_FOR_FRAME_DIFFERENCE; ++i)
 	{
-		capture >> prev_frame; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
-		cv::cvtColor(prev_frame, prev_frame, CV_BGR2GRAY);
+		capture >> prev_frame_temp; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
+		cv::cvtColor(prev_frame_temp, prev_frame_temp, CV_BGR2GRAY);
+        resize(prev_frame_temp, prev_frame, newsize);
 		frame_queue.push(prev_frame.clone());
 	}
 	prev_frame = frame_queue.front();
@@ -1078,10 +1081,11 @@ void recognition_online(const char *video_file) {
     while(true) {
         clock_t start = clock();
         clock_t time_frame;
-        capture >> current_frame;
-        if (current_frame.empty())	
+        capture >> current_frame_temp;
+        if (current_frame_temp.empty())	
             break;
-        cvtColor(current_frame ,current_frame, CV_BGR2GRAY);
+        cvtColor(current_frame_temp, current_frame_temp, CV_BGR2GRAY);
+        resize(current_frame_temp, current_frame, newsize);
         Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
         absdiff(current_frame, prev_frame, diff_img);
         vector<KeyPoint> keypoints, diff_keypoints;
@@ -1430,7 +1434,10 @@ void training() {
     fout << actions.size()*100 << " " << actions.size() << " " << "1";
     for(auto it=actions.begin(); it!=actions.end(); ++it)
         fout << endl << *it;
-    fout.close();
+    fout.close();    
+	NUM_CLUSTERS = actions.size()*100;
+	NUM_CLASSES = actions.size();
+	NUMBER_OF_GROUPS = 1;
     
     computeMoFREAKFiles();
     cluster();
@@ -1460,7 +1467,7 @@ void main(int argc, char *argv[])
 	else if (state == DETECTION_TO_CLASSIFICATION)
 	{
 		start = clock();
-		computeMoFREAKFiles();
+		//computeMoFREAKFiles();
 		end = clock();
 		cout << "#MoFREAK construction: " << (end - start)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
 

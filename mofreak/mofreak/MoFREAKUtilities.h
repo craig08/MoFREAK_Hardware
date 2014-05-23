@@ -96,7 +96,7 @@ public:
 
 	uchar meanIntensity( const cv::Mat& , const cv::Mat& , const float , const float , const unsigned int , const unsigned int , const unsigned int );
 	void myFREAKcompute( const cv::Mat& , vector<cv::KeyPoint>& , cv::Mat& ) ;
-
+    bool down_sample;
 //private:
 	
 	vector<unsigned int> extractFREAKFeature(cv::Mat &frame, float x, float y, float scale, bool extract_full_descriptor = false);

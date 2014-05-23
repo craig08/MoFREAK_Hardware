@@ -4,7 +4,7 @@
 using namespace cv;
 using namespace std;
 #include <bitset>
-
+Size newsize1(320, 240);
 MoFREAKUtilities::MoFREAKUtilities(int dset)
 {
 	dataset = dset;
@@ -595,14 +595,15 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 	}
 
 	cout << "# of frames: " << capture.get(CV_CAP_PROP_FRAME_COUNT) << endl;
-	cv::Mat current_frame;
-	cv::Mat prev_frame;
+	cv::Mat current_frame_temp, current_frame(newsize1, CV_8U);
+	cv::Mat prev_frame_temp, prev_frame(newsize1, CV_8U);
 
 	std::queue<cv::Mat> frame_queue;
 	for (unsigned int i = 0; i < GAP_FOR_FRAME_DIFFERENCE; ++i)
 	{
-		capture >> prev_frame; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
-		cv::cvtColor(prev_frame, prev_frame, CV_BGR2GRAY);
+		capture >> prev_frame_temp; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
+		cv::cvtColor(prev_frame_temp, prev_frame_temp, CV_BGR2GRAY);
+        resize(prev_frame_temp, prev_frame, newsize1);
 		frame_queue.push(prev_frame.clone());
 	}
 	prev_frame = frame_queue.front();
@@ -612,12 +613,13 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 	
 	while (true) // remember to comment out break
 	{
-		capture >> current_frame;
-		if (current_frame.empty())	
+		capture >> current_frame_temp;
+		if (current_frame_temp.empty())	
 		{
 			break;
 		}
-		cv::cvtColor(current_frame ,current_frame, CV_BGR2GRAY);
+		cv::cvtColor(current_frame_temp ,current_frame_temp, CV_BGR2GRAY);
+        resize(current_frame_temp, current_frame, newsize1);
 
 		// compute the difference image for use in later computations.
 		cv::Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
