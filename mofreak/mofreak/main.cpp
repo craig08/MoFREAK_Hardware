@@ -913,7 +913,7 @@ void computeMoFREAKFiles()
 
 			// compute mofreak on all files on that folder.
 			string action_video_path = VIDEO_PATH + "/" + video_action;
-			cout << "action video path: " << action_video_path << endl;
+			//cout << "action video path: " << action_video_path << endl;
 
 			for (directory_iterator video_iter(action_video_path); 
 				video_iter != end_iter; ++video_iter)
@@ -923,8 +923,8 @@ void computeMoFREAKFiles()
 					string video_filename = video_iter->path().filename().generic_string();
 					if (video_filename.substr(video_filename.length() - 3, 3) == "avi")
 					{
-						cout << "filename: " << video_filename << endl;
-						cout << "AVI: " << action_video_path << video_filename << endl;
+						//cout << "filename: " << video_filename << endl;
+						//cout << "AVI: " << action_video_path << video_filename << endl;
 
 						string mofreak_path = MOFREAK_PATH + "/" + video_action + "/" + video_filename + ".mofreak";
 
@@ -938,7 +938,7 @@ void computeMoFREAKFiles()
 							exit(1);
 						}
 
-						cout << "mofreak path: " << mofreak_path << endl;
+						//cout << "mofreak path: " << mofreak_path << endl;
 						mofreak->computeMoFREAKFromFile(action_video_path + "/" + video_filename, mofreak_path, true);
 					}
 				}

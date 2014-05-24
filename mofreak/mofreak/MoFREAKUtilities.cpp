@@ -52,9 +52,7 @@ MoFREAKUtilities::MoFREAKUtilities(int dset)
         else ++idx;
     }
     fin.close();     
-	// end building pattern    
-	duration_integral = duration_remove = duration_orientation = duration_value = 0;
- 
+	// end building pattern     
 }
 
 // vanilla string split operation.  Direct copy-paste from stack overflow
@@ -500,9 +498,7 @@ void MoFREAKUtilities::myFREAKcompute( const Mat& image, vector<KeyPoint>& keypo
    	clock_t start;
 
     Mat imgIntegral;
-	start = clock();
     integral(image, imgIntegral);
-	duration_integral += clock()-start;
 
     std::vector<int> kpScaleIdx(keypoints.size()); // used to save pattern scale index corresponding to each keypoints
     const std::vector<int>::iterator ScaleIdxBegin = kpScaleIdx.begin(); 
@@ -513,7 +509,6 @@ void MoFREAKUtilities::myFREAKcompute( const Mat& image, vector<KeyPoint>& keypo
     int direction0;
     int direction1;
 
-	start = clock();
     // compute the scale index corresponding to the keypoint size and remove keypoints close to the border
     for( size_t k = keypoints.size(); k--; ) {
         kpScaleIdx[k] = max( (int)(log(keypoints[k].size/FREAK_SMALLEST_KP_SIZE)*sizeCst+0.5) ,0);
@@ -528,7 +523,6 @@ void MoFREAKUtilities::myFREAKcompute( const Mat& image, vector<KeyPoint>& keypo
             kpScaleIdx.erase(ScaleIdxBegin+k);
         }
     }
-	duration_remove += clock()-start;
 
     // allocate descriptor memory, estimate orientations, extract descriptors
     // extract the best comparisons only
@@ -537,7 +531,6 @@ void MoFREAKUtilities::myFREAKcompute( const Mat& image, vector<KeyPoint>& keypo
     for( size_t k = keypoints.size(); k--; ) {
         // estimate orientation (gradient)
         // get the points intensity value in the un-rotated pattern
-		start = clock();
         for( int i = FREAK_NB_POINTS; i--; ) {
             pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], 0, i);
         }
@@ -557,13 +550,10 @@ void MoFREAKUtilities::myFREAKcompute( const Mat& image, vector<KeyPoint>& keypo
         if( thetaIdx >= FREAK_NB_ORIENTATION )
             thetaIdx -= FREAK_NB_ORIENTATION;
             
-		duration_orientation += clock() - start;
-		start = clock();
         // extract descriptor at the computed orientation
         for( int i = FREAK_NB_POINTS; i--; ) {
             pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], thetaIdx, i);
         }
-		duration_value += clock()-start;
         // extracting descriptor
         for(int n = 0; n < NB_PAIRS; ++n)
             ptr->set(n, pointsValue[newDesPairs[n].i] >= pointsValue[newDesPairs[n].j]);
@@ -580,6 +570,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 	clock_t start_suff, duration_suff=0;
 	clock_t start_appearance, duration_appearance=0;
 	clock_t start_MIP, duration_MIP=0;
+    int keypoint_before=0, keypoint_after=0;
 	std::string debug_filename = video_filename;
 	// ignore the first frames because we can't compute the frame difference with them.
 	const int GAP_FOR_FRAME_DIFFERENCE = 5;
@@ -608,8 +599,8 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 	frame_queue.pop();
 
 	unsigned int frame_num = GAP_FOR_FRAME_DIFFERENCE - 1;
-	BRISK *diff_detector = new BRISK(30); 
-    //cv::BriskFeatureDetector *diff_detector = new cv::BriskFeatureDetector(30); 
+	//BRISK *diff_detector = new BRISK(30); 
+    cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
 	while (true) // remember to comment out break
 	{
 		capture >> current_frame;
@@ -632,8 +623,6 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		vector<cv::KeyPoint> keypoints, diff_keypoints;
 		cv::Mat descriptors;
 		// detect all keypoints.
-		//cv::BriskFeatureDetector *detector = new cv::BriskFeatureDetector(30);
-		//cv::BriskFeatureDetector *diff_detector = new cv::BriskFeatureDetector(30); 
 		//BRISK *diff_detector = new BRISK(30); 
 		//cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
 
@@ -641,6 +630,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		start_detector = clock();
 		diff_detector->detect(diff_img, keypoints); 
 		duration_detector += clock()-start_detector;
+        keypoint_before = keypoints.size();
         //keypoints.resize(2000);
         /*
 		Mat draw;
@@ -681,7 +671,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		//extractor.compute(diff_img, keypoints, descriptors);
 		myFREAKcompute(diff_img, keypoints, descriptors);
 		duration_extractor += clock()-start_extractor;
-		
+		keypoint_after = keypoints.size();
 		/*Mat draw;
 		drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
 		sprintf(path, "D:/project/action/sample_img/draw_test/draw_after_extraction_%03d.png", frame_num);
@@ -758,26 +748,19 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
     delete diff_detector;
 
 	// in the end, print the mofreak file and reset the features for a new file.
-	cout << "Writing this mofreak file: " << mofreak_filename << endl;
+	//cout << "Writing this mofreak file: " << mofreak_filename << endl;
 	writeMoFREAKFeaturesToFile(mofreak_filename);
 
 	if (clear_features_after_computation)
 		features.clear();
-	
-
-
-	cout << "#integral: " << duration_integral/(double)CLOCKS_PER_SEC << " seconds! "  << endl;
-	cout << "#remove: " << duration_remove/(double)CLOCKS_PER_SEC << " seconds! "  << endl;
-	cout << "#orientation: " << duration_orientation/(double)CLOCKS_PER_SEC << " seconds! "  << endl;
-	cout << "#value: " << duration_value/(double)CLOCKS_PER_SEC << " seconds! "  << endl;
-	duration_integral = duration_remove = duration_orientation = duration_value = 0;
-	cout << "#diff image: " << duration_diff/(double)CLOCKS_PER_SEC << " seconds! " <<  endl;
-	cout << "#detector: " << duration_detector/(double)CLOCKS_PER_SEC << " seconds! " <<  endl;
-	cout << "#extractor: " << duration_extractor/(double)CLOCKS_PER_SEC << " seconds! " << endl;
-	cout << "#suff: " << duration_suff/(double)CLOCKS_PER_SEC << " seconds! " << endl;
-	cout << "#appearance: " << duration_appearance/(double)CLOCKS_PER_SEC << " seconds! "  << endl;
-	cout << "#MIP: " << duration_MIP/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
-
+    
+    cout << "#kp before: " << keypoint_before << endl;
+    cout << "#kp after: " << keypoint_after << endl;
+	cout << "#diff image: " << (double)duration_diff/CLOCKS_PER_SEC << " seconds! " <<  endl;
+	cout << "#detector: " << (double)duration_detector/CLOCKS_PER_SEC << " seconds! " <<  endl;
+	cout << "#extractor: " << (double)duration_extractor/CLOCKS_PER_SEC << " seconds! " << endl;
+	cout << "#suff: " << (double)duration_suff/CLOCKS_PER_SEC << " seconds! " << endl;
+	cout << "#MIP: " << (double)duration_MIP/CLOCKS_PER_SEC << " seconds! " << endl << endl;
 }
 
 vector<unsigned int> MoFREAKUtilities::extractFREAKFeature(cv::Mat &frame, float x, float y, float scale, bool extract_full_descriptor)
