@@ -46,7 +46,7 @@ enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognitio
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
 
 int dataset = KTH; //KTH;//HMDB51;
-int state = DETECTION_TO_CLASSIFICATION;
+int state = RECOGNITION_ONLINE;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -1046,13 +1046,13 @@ void recognition_online(const char *video_file) {
     const int HISTOGRAM_STEP = 10;
     
     // Initialize file path
-    SVM_PATH = TRAINING_PATH;
+    //SVM_PATH = TRAINING_PATH;
     initialize_label();
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
     SVMInterface svm_guy;
-    string model_path = SVM_PATH + "/model.svm";
+    string model_path = SVM_PATH + "/model_1.svm";
     ofstream fout;
     
     VideoCapture capture;
@@ -1060,15 +1060,19 @@ void recognition_online(const char *video_file) {
 	if (!capture.isOpened())
 		cout << "Could not open file: " << video_filename << endl;
     
-    Mat current_frame(newsize,CV_8U), current_frame_temp;
-    Mat prev_frame(newsize,CV_8U), prev_frame_temp;
+    Mat current_frame(newsize,CV_8U);
+    Mat prev_frame(newsize,CV_8U);
+    //Mat current_frame_temp;
+    //Mat prev_frame_temp;
     queue<Mat> frame_queue;
     int queue_num = 1;
 	for (unsigned int i = 0; i < GAP_FOR_FRAME_DIFFERENCE; ++i)
 	{
-		capture >> prev_frame_temp; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
-		cv::cvtColor(prev_frame_temp, prev_frame_temp, CV_BGR2GRAY);
-        resize(prev_frame_temp, prev_frame, newsize);
+		//capture >> prev_frame_temp; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
+        capture >> prev_frame;
+		//cv::cvtColor(prev_frame_temp, prev_frame_temp, CV_BGR2GRAY);
+		cv::cvtColor(prev_frame, prev_frame, CV_BGR2GRAY);
+        //resize(prev_frame_temp, prev_frame, newsize);
 		frame_queue.push(prev_frame.clone());
 	}
 	prev_frame = frame_queue.front();
@@ -1088,11 +1092,14 @@ void recognition_online(const char *video_file) {
     while(true) {
         clock_t start = clock();
         clock_t time_frame;
-        capture >> current_frame_temp;
-        if (current_frame_temp.empty())	
+        //capture >> current_frame_temp;
+        capture >> current_frame;
+        //if (current_frame_temp.empty())	
+        if (current_frame.empty())
             break;
-        cvtColor(current_frame_temp, current_frame_temp, CV_BGR2GRAY);
-        resize(current_frame_temp, current_frame, newsize);
+        cvtColor(current_frame, current_frame, CV_BGR2GRAY);
+        //cvtColor(current_frame_temp, current_frame_temp, CV_BGR2GRAY);
+        //resize(current_frame_temp, current_frame, newsize);
         Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
         absdiff(current_frame, prev_frame, diff_img);
         vector<KeyPoint> keypoints, diff_keypoints;
@@ -1204,47 +1211,6 @@ void recognition_online(const char *video_file) {
             waitKey(1);
 	} 
     delete [] x;
-
-    /*
-    cout << "label: " << labels[predict_label] << endl;
-    cout << "Build MoFREAK duration: " << time_mofreak/(double)CLOCKS_PER_SEC << " seconds" << endl;
-    cout << "Compute BOW duration: " << time_BOW/(double)CLOCKS_PER_SEC << " seconds" << endl;
-    cout << "SVM predict duration: " << time_predict/(double)CLOCKS_PER_SEC << " seconds" << endl;
-    
-    stringstream ss;
-	ss << (0) << " "; // label for svm
-	for (int col = 0; col < bow_feature.cols; ++col)
-	{
-		ss << (int)(col + 1) << ":" << (float)bow_feature.at<float>(0, col) << " ";
-	}
-	string current_line;
-	current_line = ss.str();
-	ss.str("");
-	ss.clear();
-    
-    ofstream fout;
-    string recognition_path = RECOG_PATH + "/" + video_filename.substr(0, video_filename.length() - 4) + ".bow";
-    fout.open(recognition_path);
-    fout << current_line << endl;
-    fout.close();
-    */
-    // Play video
-    /*
-    VideoCapture video;
-    video.open(video_file);
-    if(!video.isOpened()) {
-        cout << "Fail to open " << video_file << "!" << endl;
-        return;
-    }
-    while(true) {
-        Mat frame;
-        if(!video.read(frame)) break;
-        imshow("Test Video", frame);
-        waitKey(10);
-    }
-    destroyWindow("Test Video");
-    //waitKey(0);
-    */
 }
 
 void video_online() {
@@ -1427,7 +1393,7 @@ void video_online() {
 }
 
 void training() {
-    SVM_PATH = TRAINING_PATH;
+    //SVM_PATH = TRAINING_PATH;
     string model_path = SVM_PATH + "model.svm";
     string labels_path = SVM_PATH + "labels.txt";
     SVMInterface svm_guy;
