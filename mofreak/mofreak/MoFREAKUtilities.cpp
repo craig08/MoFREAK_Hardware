@@ -630,7 +630,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		start_detector = clock();
 		diff_detector->detect(diff_img, keypoints); 
 		duration_detector += clock()-start_detector;
-        keypoint_before = keypoints.size();
+        keypoint_before += keypoints.size();
         //keypoints.resize(2000);
         /*
 		Mat draw;
@@ -671,7 +671,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 		//extractor.compute(diff_img, keypoints, descriptors);
 		myFREAKcompute(diff_img, keypoints, descriptors);
 		duration_extractor += clock()-start_extractor;
-		keypoint_after = keypoints.size();
+		keypoint_after += keypoints.size();
 		/*Mat draw;
 		drawKeypoints(diff_img, keypoints, draw, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
 		sprintf(path, "D:/project/action/sample_img/draw_test/draw_after_extraction_%03d.png", frame_num);
@@ -753,14 +753,14 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 
 	if (clear_features_after_computation)
 		features.clear();
-    
     cout << "#kp before: " << keypoint_before << endl;
-    cout << "#kp after: " << keypoint_after << endl;
+    cout << "#kp after: " << keypoint_after << endl;    
 	cout << "#diff image: " << (double)duration_diff/CLOCKS_PER_SEC << " seconds! " <<  endl;
 	cout << "#detector: " << (double)duration_detector/CLOCKS_PER_SEC << " seconds! " <<  endl;
 	cout << "#extractor: " << (double)duration_extractor/CLOCKS_PER_SEC << " seconds! " << endl;
 	cout << "#suff: " << (double)duration_suff/CLOCKS_PER_SEC << " seconds! " << endl;
-	cout << "#MIP: " << (double)duration_MIP/CLOCKS_PER_SEC << " seconds! " << endl << endl;
+	cout << "#MIP: " << (double)duration_MIP/CLOCKS_PER_SEC << " seconds! " << endl;
+    cout << "#kp ===================================" << endl << endl;
 }
 
 vector<unsigned int> MoFREAKUtilities::extractFREAKFeature(cv::Mat &frame, float x, float y, float scale, bool extract_full_descriptor)

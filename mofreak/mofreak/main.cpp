@@ -46,7 +46,7 @@ enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognitio
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
 
 int dataset = KTH; //KTH;//HMDB51;
-int state = RECOGNITION_ONLINE;
+int state = DETECTION_TO_CLASSIFICATION;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
