@@ -599,8 +599,8 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 	frame_queue.pop();
 
 	unsigned int frame_num = GAP_FOR_FRAME_DIFFERENCE - 1;
-	//BRISK *diff_detector = new BRISK(30); 
-    cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
+	BRISK *diff_detector = new BRISK(30); 
+    //cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
 	while (true) // remember to comment out break
 	{
 		capture >> current_frame;
@@ -759,8 +759,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 	cout << "#detector: " << (double)duration_detector/CLOCKS_PER_SEC << " seconds! " <<  endl;
 	cout << "#extractor: " << (double)duration_extractor/CLOCKS_PER_SEC << " seconds! " << endl;
 	cout << "#suff: " << (double)duration_suff/CLOCKS_PER_SEC << " seconds! " << endl;
-	cout << "#MIP: " << (double)duration_MIP/CLOCKS_PER_SEC << " seconds! " << endl;
-    cout << "#kp ===================================" << endl << endl;
+	cout << "#MIP: " << (double)duration_MIP/CLOCKS_PER_SEC << " seconds! " << endl << endl;
 }
 
 vector<unsigned int> MoFREAKUtilities::extractFREAKFeature(cv::Mat &frame, float x, float y, float scale, bool extract_full_descriptor)

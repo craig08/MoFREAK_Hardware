@@ -30,7 +30,7 @@ string MOSIFT_DIR, MOFREAK_PATH, VIDEO_PATH, SVM_PATH, METADATA_PATH, RECOG_PATH
 string MOFREAK_NEG_PATH, MOFREAK_POS_PATH; // these are TRECVID exclusive
 vector<string> labels;
 Size newsize(320, 240);
-const bool down_sample=true;
+const bool down_sample = false;
 
 unsigned int NUM_MOTION_BYTES = 8;
 unsigned int NUM_APPEARANCE_BYTES = 8;
@@ -46,7 +46,7 @@ enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognitio
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
 
 int dataset = KTH; //KTH;//HMDB51;
-int state = DETECTION_TO_CLASSIFICATION;
+int state = RECOGNITION_ONLINE;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -59,6 +59,15 @@ void initialize_label() {
     labels.push_back("");
     while(fin >> action)
         labels.push_back(action);
+}
+
+void CVT_RE(Mat &input) {
+    cvtColor(input, input, CV_BGR2GRAY);
+    if(down_sample) {
+        Mat ret(newsize, input.type());
+        resize(input, ret, newsize);
+        input = ret;
+    }
 }
 
 struct Detection
@@ -151,7 +160,7 @@ void setParameters()
 		}
 
 		MOFREAK_PATH = "D:/project/action/dataset/UCF101/mofreak";
-		VIDEO_PATH = "D:/project/action/dataset/UCF101/test";
+		VIDEO_PATH = "D:/project/action/dataset/UCF101/data";
 		SVM_PATH = "D:/project/action/dataset/UCF101/svm";
 		METADATA_PATH = "C:/data/ucf101/metadata/";
 	}
@@ -952,13 +961,14 @@ void recognition(const char *video_file) {
     clock_t time_mofreak, time_BOW, time_predict;
     
     // Initialize file path
-    SVM_PATH = TRAINING_PATH;
+    //SVM_PATH = TRAINING_PATH;
+    SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm/";
     initialize_label();
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
     SVMInterface svm_guy;
-    string model_path = SVM_PATH + "/model.svm";
+    string model_path = SVM_PATH + "/model_18.svm";
     //string svm_out = RECOG_PATH + "/response.txt";
     
     // Compute MoFREAK feature from file
@@ -1038,21 +1048,22 @@ void recognition(const char *video_file) {
     //waitKey(0);
 }
 
-void recognition_online(const char *video_file) {
+void recognition_online(const char *video_file, const int delta_h, const int delta_f) {
     //clock_t start = clock();
     //clock_t time_mofreak, time_BOW, time_predict;
     const int GAP_FOR_FRAME_DIFFERENCE = 5;
-    const int ACCUMULATIVE_LENGTH = 60;
-    const int HISTOGRAM_STEP = 10;
+    //const int ACCUMULATIVE_LENGTH = 60;
+    //const int HISTOGRAM_STEP = 10;
     
     // Initialize file path
     //SVM_PATH = TRAINING_PATH;
+    SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm/";
     initialize_label();
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
     SVMInterface svm_guy;
-    string model_path = SVM_PATH + "/model_1.svm";
+    string model_path = SVM_PATH + "/model_18.svm";
     ofstream fout;
     
     VideoCapture capture;
@@ -1060,19 +1071,14 @@ void recognition_online(const char *video_file) {
 	if (!capture.isOpened())
 		cout << "Could not open file: " << video_filename << endl;
     
-    Mat current_frame(newsize,CV_8U);
-    Mat prev_frame(newsize,CV_8U);
-    //Mat current_frame_temp;
-    //Mat prev_frame_temp;
+    Mat current_frame;
+    Mat prev_frame;
     queue<Mat> frame_queue;
     int queue_num = 1;
 	for (unsigned int i = 0; i < GAP_FOR_FRAME_DIFFERENCE; ++i)
 	{
-		//capture >> prev_frame_temp; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
-        capture >> prev_frame;
-		//cv::cvtColor(prev_frame_temp, prev_frame_temp, CV_BGR2GRAY);
-		cv::cvtColor(prev_frame, prev_frame, CV_BGR2GRAY);
-        //resize(prev_frame_temp, prev_frame, newsize);
+		capture >> prev_frame; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
+        CVT_RE(prev_frame);
 		frame_queue.push(prev_frame.clone());
 	}
 	prev_frame = frame_queue.front();
@@ -1088,23 +1094,22 @@ void recognition_online(const char *video_file) {
     svm_node *x = new svm_node[curr_bow.cols+1];  
     double predict_label = 0.0;
     int fps = capture.get(CV_CAP_PROP_FPS);
+    int action, person, video_number;
+    int best_match;
     
+	BRISK *diff_detector = new BRISK(30); 
+    //cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);    
     while(true) {
         clock_t start = clock();
         clock_t time_frame;
-        //capture >> current_frame_temp;
         capture >> current_frame;
-        //if (current_frame_temp.empty())	
         if (current_frame.empty())
             break;
-        cvtColor(current_frame, current_frame, CV_BGR2GRAY);
-        //cvtColor(current_frame_temp, current_frame_temp, CV_BGR2GRAY);
-        //resize(current_frame_temp, current_frame, newsize);
+        CVT_RE(current_frame);
         Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
         absdiff(current_frame, prev_frame, diff_img);
         vector<KeyPoint> keypoints, diff_keypoints;
         Mat descriptors;
-        SurfFeatureDetector *diff_detector = new SurfFeatureDetector(30);
         diff_detector->detect(diff_img, keypoints);
         for(auto keypt = keypoints.begin(); keypt != keypoints.end();) {
             if(!mofreak->sufficientMotion(current_frame, prev_frame, keypt->pt.x, keypt->pt.y, keypt->size))
@@ -1115,8 +1120,6 @@ void recognition_online(const char *video_file) {
         mofreak->myFREAKcompute(diff_img, keypoints, descriptors);
 		unsigned char *pointer_to_descriptor_row = 0;
 		unsigned int keypoint_row = 0;
-        //#pragma omp parallel
-        {
 		for (auto keypt = keypoints.begin(); keypt != keypoints.end(); ++keypt)
 		{
 			pointer_to_descriptor_row = descriptors.ptr<unsigned char>(keypoint_row);
@@ -1144,7 +1147,6 @@ void recognition_online(const char *video_file) {
                 feature_vector.at<unsigned char>(0, mofreak->NUMBER_OF_BYTES_FOR_APPEARANCE+i) = motion_desc[i];
             }
 
-            int action, person, video_number;
             mofreak->readMetadata(video_filename, action, video_number, person);
 
             ftr.action = action;
@@ -1157,19 +1159,18 @@ void recognition_online(const char *video_file) {
             mofreak->features.push_back(ftr);
 			keypoint_row++;
             
-            int best_match = bow_rep.bruteForceMatch(feature_vector);
+            best_match = bow_rep.bruteForceMatch(feature_vector);
             curr_histogram.at<float>(0, best_match) += 1;
             total_histogram.at<float>(0, best_match) += 1;
             total_N += 1;
-        }
-        }        
+        }      
 		frame_queue.push(current_frame.clone());
 		prev_frame = frame_queue.front();
 		frame_queue.pop();
 		++frame_num;
         histogram_queue.push(curr_histogram.clone());
         curr_histogram = Mat::zeros(1, NUM_CLUSTERS, CV_32FC1);
-        if(histogram_queue.size() > ACCUMULATIVE_LENGTH) {
+        if(histogram_queue.size() > delta_h) {
             Mat temp = histogram_queue.front();
             histogram_queue.pop();
             for(int i=0; i<NUM_CLUSTERS; ++i) {
@@ -1177,7 +1178,7 @@ void recognition_online(const char *video_file) {
                 total_N -= (int)temp.at<float>(0, i);
             }
             ++queue_num;
-            if(queue_num > HISTOGRAM_STEP) {
+            if(queue_num > delta_f) {
                 queue_num = 1;
                 for(int i=0; i<NUM_CLUSTERS; ++i)
                     curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;
@@ -1211,6 +1212,7 @@ void recognition_online(const char *video_file) {
             waitKey(1);
 	} 
     delete [] x;
+    delete diff_detector;
 }
 
 void video_online() {
@@ -1515,11 +1517,11 @@ void main(int argc, char *argv[])
     else if (state == RECOGNITION_ONLINE)
     {
 		start = clock();
-        if(argc != 2) {
-            cout << "Usage: " << argv[0] << " your_video_file" << endl;
+        if(argc != 4) {
+            cout << "Usage: " << argv[0] << " your_video_file delta_h delta_f " << endl;
             return;
         }
-        recognition_online(argv[1]);
+        recognition_online(argv[1], atoi(argv[2]), atoi(argv[3]));
 		end = clock();
     }
     else if (state == VIDEO_ONLINE)
