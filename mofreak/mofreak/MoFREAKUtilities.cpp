@@ -1330,7 +1330,7 @@ void MoFREAKUtilities::readMetadata(std::string filename, int &action, int &vide
 	boost::filesystem::path file_name = file_path.filename();
 	std::string file_name_str = file_name.generic_string();
 
-	if (false)//dataset == KTH)
+	if (dataset == KTH)
 	{
 		// get the action.
 		if (boost::contains(file_name_str, "boxing"))
