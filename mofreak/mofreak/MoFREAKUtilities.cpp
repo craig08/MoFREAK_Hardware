@@ -1436,13 +1436,6 @@ void MoFREAKUtilities::readMoFREAKFeatures(std::string filename, int num_to_samp
 			ftr.motion[i] = a;
 		}
 
-		// TEMP.  THIS IS FOR AN EXPERIMENT.  DELETE LATER. [TODO]
-		/*for (unsigned i = 0; i < 64 - NUMBER_OF_BYTES_FOR_MOTION; ++i)
-		{
-			unsigned int a;
-			stream >> a;
-		}*/
-
 
 		// metadata
 		ftr.action = action;

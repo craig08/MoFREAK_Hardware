@@ -26,7 +26,7 @@ using namespace cv;
 
 bool DISTRIBUTED = false;
 
-string MOSIFT_DIR, MOFREAK_PATH, VIDEO_PATH, SVM_PATH, METADATA_PATH, RECOG_PATH, RECOG_ONLINE_PATH, TRAINING_PATH; // for file structure
+string MOSIFT_DIR, MOFREAK_PATH, VIDEO_PATH, SVM_PATH, METADATA_PATH, RECOG_PATH, RECOG_ONLINE_PATH, TRAINING_PATH, BOW_PATH; // for file structure
 string MOFREAK_NEG_PATH, MOFREAK_POS_PATH; // these are TRECVID exclusive
 vector<string> labels;
 Size newsize(320, 240);
@@ -41,7 +41,7 @@ vector<int> possible_classes;
 std::deque<MoFREAKFeature> mofreak_ftrs;
 
 enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognition states
-	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION, RECOGNITION_ONLINE, VIDEO_ONLINE, TRAINING, CLASSIFICATION, HISTOGRAM_PARAM}; // these states are exclusive to TRECVID
+	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION, RECOGNITION_ONLINE, VIDEO_ONLINE, TRAINING, CLASSIFICATION, HISTOGRAM_PARAM, CONVERT_BOW}; // these states are exclusive to TRECVID
 
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
 
@@ -162,6 +162,7 @@ void setParameters()
 		MOFREAK_PATH = "D:/project/action/dataset/UCF101/mofreak";
 		VIDEO_PATH = "D:/project/action/dataset/UCF101/data";
 		SVM_PATH = "D:/project/action/dataset/UCF101/svm";
+		BOW_PATH = "D:/project/action/dataset/UCF101/bow";
 		METADATA_PATH = "C:/data/ucf101/metadata/";
 	}
 
@@ -1420,7 +1421,7 @@ void training() {
     svm_guy.trainModel(SVM_PATH + "1.test", model_path);
 }
 
-void histogram_param(const int delta_h, const int delta_f) {
+void histogram_param(const int delta_f, const int delta_h) {
     const int GAP_FOR_FRAME_DIFFERENCE = 5;
     
     // Initialize file path
@@ -1591,6 +1592,77 @@ void histogram_param(const int delta_h, const int delta_f) {
     delete diff_detector;
 }
 
+
+void convert_one_mofreak(BagOfWordsRepresentation &bow_rep, string input, string output) {
+    bool success;
+    Mat bow_feature;
+    try
+    {
+        bow_feature = bow_rep.buildHistogram(input, success);
+    }
+    catch (cv::Exception &e)
+    {
+        cout << "Error: " << e.what() << endl;
+        exit(1);
+    }
+    if (!success)
+    {
+        std::cout << "Bag-of-words feature construction was unsuccessful.  Investigate." << std::endl;
+        exit(1);
+    }         
+    stringstream ss;
+    ss << (0) << " "; // label for svm
+    for (int col = 0; col < bow_feature.cols; ++col)
+    {
+        ss << (int)(col + 1) << ":" << (float)bow_feature.at<float>(0, col) << " ";
+    }
+    string current_line;
+    current_line = ss.str();
+    ss.str("");
+    ss.clear();
+    
+    ofstream fout;
+    fout.open(output);
+    fout << current_line << endl;
+    fout.close(); 
+}
+
+void convert_bow() {
+    BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);   
+	directory_iterator end_iter;
+	cout << "Here are the mofreak files: " << MOFREAK_PATH << endl;
+	cout << "BOW files will go here: " << BOW_PATH << endl;
+	for (directory_iterator dir_iter(MOFREAK_PATH); dir_iter != end_iter; ++dir_iter)
+	{
+        if (is_directory(dir_iter->status()))
+		{
+			string video_action = dir_iter->path().filename().generic_string();
+			cout << "action: " << video_action << endl;
+			string action_video_path = MOFREAK_PATH + "/" + video_action;
+			for (directory_iterator video_iter(action_video_path); video_iter != end_iter; ++video_iter)
+			{
+				if (is_regular_file(video_iter->status()))
+				{
+					string video_filename = video_iter->path().filename().generic_string();
+					if (video_filename.substr(video_filename.length() - 7, 7) == "mofreak")
+					{
+						string bow_path = BOW_PATH + "/" + video_action + "/" + video_filename + ".bow";
+						boost::filesystem::path dir_to_create(BOW_PATH + "/" + video_action + "/");
+						boost::system::error_code returned_error;
+						boost::filesystem::create_directories(dir_to_create, returned_error);
+						if (returned_error)
+						{
+							std::cout << "Could not make directory " << dir_to_create.string() << std::endl;
+							exit(1);
+						}	
+                        convert_one_mofreak(bow_rep, video_iter->path().generic_string(), bow_path);
+					}
+				}
+			}
+		}
+	}    
+}
+
 void main(int argc, char *argv[])
 {
 	setParameters();
@@ -1660,7 +1732,7 @@ void main(int argc, char *argv[])
 	}
     else if (state == CLASSIFICATION) {
         clock_t start1 = clock();
-        cluster();
+        //cluster();
         clock_t end1 = clock();
         cout << "#clustering: " << (end1 - start1)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
         
@@ -1717,6 +1789,12 @@ void main(int argc, char *argv[])
         histogram_param(atoi(argv[1]), atoi(argv[2]));
 		end = clock();
     }
+    else if (state == CONVERT_BOW)
+    {
+        start = clock();
+        convert_bow();
+        end = clock();
+    }
 	// TRECVID cases
 	else if (state == PICK_CLUSTERS)
 	{
@@ -1755,7 +1833,5 @@ void main(int argc, char *argv[])
 	cout << "Took this long: " << (end - start)/(double)CLOCKS_PER_SEC << " seconds! " << endl;
 	cout << "All done.  Press any key to continue..." << endl;
 	cout << "Dumping memory leak info" << endl;
-	system("PAUSE");
 	_CrtDumpMemoryLeaks();
-	system("PAUSE");
 }
