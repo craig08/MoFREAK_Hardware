@@ -46,7 +46,7 @@ enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognitio
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
 
 int dataset = KTH; //KTH;//HMDB51;
-int state = HISTOGRAM_PARAM;
+int state = RECOGNITION_ONLINE;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -1049,7 +1049,7 @@ void recognition(const char *video_file) {
     //waitKey(0);
 }
 
-void recognition_online(const char *video_file, const int delta_h, const int delta_f) {
+void recognition_online(const char *video_file, const int delta_f, const int delta_h) {
     //clock_t start = clock();
     //clock_t time_mofreak, time_BOW, time_predict;
     const int GAP_FOR_FRAME_DIFFERENCE = 5;
