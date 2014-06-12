@@ -73,6 +73,7 @@ unsigned int BagOfWordsRepresentation::hammingDistance(unsigned char a, unsigned
 
 cv::Mat BagOfWordsRepresentation::buildHistogram(std::string &file, bool &success)
 {
+    clock_t start, duration=0;
 	success = false;
 
 	cv::Mat histogram(1, NUMBER_OF_CLUSTERS, CV_32FC1);
@@ -108,11 +109,13 @@ cv::Mat BagOfWordsRepresentation::buildHistogram(std::string &file, bool &succes
 		// brute force match each mofreak point against all clusters to find best match.
 		//std::vector<cv::DMatch> matches;
 		//bf_matcher->match(feature_vector, matches);
+        start = clock();
 		int best_match = bruteForceMatch(feature_vector);
 
 		// + 1 to that codeword
 		//histogram.at<float>(0, matches[0].imgIdx) = histogram.at<float>(0, matches[0].imgIdx) + 1;
 		histogram.at<float>(0, best_match) = histogram.at<float>(0, best_match) + 1;
+        duration += clock()-start;
 		success = true;
 		feature_vector.release();
 	}
@@ -133,7 +136,8 @@ cv::Mat BagOfWordsRepresentation::buildHistogram(std::string &file, bool &succes
 	{
 		histogram.at<float>(0, col) = histogram.at<float>(0, col)/histogram_sum;
 	}
-	
+    
+	cout << "Build Histogram: " << (double)duration/CLOCKS_PER_SEC << endl << endl;
 	return histogram;
 }
 

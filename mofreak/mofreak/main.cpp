@@ -41,17 +41,17 @@ vector<int> possible_classes;
 std::deque<MoFREAKFeature> mofreak_ftrs;
 
 enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognition states
-	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION, RECOGNITION_ONLINE, VIDEO_ONLINE, TRAINING, CLASSIFICATION, HISTOGRAM_PARAM, CONVERT_BOW}; // these states are exclusive to TRECVID
+	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION, RECOGNITION_ONLINE, VIDEO_ONLINE, TRAINING, CLASSIFICATION, HISTOGRAM_PARAM, CONVERT_BOW, BOW_TO_SVM}; // these states are exclusive to TRECVID
 
-enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
+enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101, OUR};
 
-int dataset = KTH; //KTH;//HMDB51;
-int state = RECOGNITION_ONLINE;
+int dataset = UCF101; //KTH;//HMDB51;
+int state = RECOGNITION;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
 void initialize_label() {
-    ifstream fin(SVM_PATH+"labels.txt");
+    ifstream fin(SVM_PATH+"/labels.txt");
     if(!fin) cout << "No labels map!!" << endl;
     int clusters, classes, groups;
     fin >> NUM_CLUSTERS >> NUM_CLASSES >> NUMBER_OF_GROUPS;
@@ -123,8 +123,8 @@ void setParameters()
 		// structural folder info.
 		MOSIFT_DIR = "C:/data/kth/mosift/";
 		MOFREAK_PATH = "D:/project/action/dataset/KTH/mofreak"; 
-		VIDEO_PATH = "D:/project/action/dataset/KTH/original";
-		SVM_PATH = "D:/project/action/dataset/KTH/svm/";
+		VIDEO_PATH = "D:/project/action/dataset/KTH/test";
+		SVM_PATH = "D:/project/action/dataset/KTH/svm";
 		RECOG_PATH = "D:/project/action/dataset/KTH/recognition/";
 		RECOG_ONLINE_PATH = "D:/project/action/dataset/KTH/recognition_online/";
         TRAINING_PATH = "D:/project/action/dataset/KTH/training/";
@@ -963,13 +963,14 @@ void recognition(const char *video_file) {
     
     // Initialize file path
     //SVM_PATH = TRAINING_PATH;
-    SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm/";
+    //SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm/";
     initialize_label();
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
     SVMInterface svm_guy;
-    string model_path = SVM_PATH + "/model_18.svm";
+    //string model_path = SVM_PATH + "/model_18.svm";
+    string model_path = SVM_PATH + "/1.train.model";
     //string svm_out = RECOG_PATH + "/response.txt";
     
     // Compute MoFREAK feature from file
@@ -1033,6 +1034,7 @@ void recognition(const char *video_file) {
     fout << current_line << endl;
     fout.close();
     // Play video
+    /*
     VideoCapture video;
     video.open(video_file);
     if(!video.isOpened()) {
@@ -1046,6 +1048,7 @@ void recognition(const char *video_file) {
         waitKey(10);
     }
     destroyWindow("Test Video");
+    */
     //waitKey(0);
 }
 
@@ -1592,7 +1595,6 @@ void histogram_param(const int delta_f, const int delta_h) {
     delete diff_detector;
 }
 
-
 void convert_one_mofreak(BagOfWordsRepresentation &bow_rep, string input, string output) {
     bool success;
     Mat bow_feature;
@@ -1661,6 +1663,115 @@ void convert_bow() {
 			}
 		}
 	}    
+}
+
+vector<string> split_file(const string &s, char delim) {
+    vector<std::string> elems;
+    stringstream ss(s);
+    string item;
+    while(getline(ss, item, delim)) 
+        elems.push_back(item);
+    return elems;
+}
+
+void bow_to_svm() {
+    BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);   
+    bow_rep.intializeBOWMemory(SVM_PATH);	// ensure that we have the correct number of open files
+    cout << "Here are the bow files: " << BOW_PATH << endl;
+	cout << "SVM files will go here: " << SVM_PATH << endl;
+    directory_iterator end_iter;
+    int act = 0;
+    ifstream fin;
+	for (directory_iterator dir_iter(BOW_PATH); dir_iter != end_iter; ++dir_iter)
+	{
+        if (is_directory(dir_iter->status()))
+		{
+			string video_action = dir_iter->path().filename().generic_string();
+			cout << "action: " << video_action << endl;
+			string action_video_path = BOW_PATH + "/" + video_action;
+            ++act;
+			for (directory_iterator video_iter(action_video_path); video_iter != end_iter; ++video_iter)
+			{
+				if (is_regular_file(video_iter->status()))
+				{
+					string bow_filename = video_iter->path().filename().generic_string();
+					if (bow_filename.substr(bow_filename.length() - 3, 3) == "bow")
+					{
+                        fin.open(BOW_PATH + "/" + video_action + "/" + bow_filename);
+                        fin.seekg(0, fin.end);
+                        long size = fin.tellg();
+                        fin.seekg(2);
+                        char* buf = new char[size+2];
+                        fin.read(buf+4, size-2);
+                        fin.close();
+                        buf[0] = (act>=100)? '1': ' ';
+                        buf[1] = (act>=10)? '0'+(act/10)%10: ' ';
+                        buf[2] = '0'+act%10;
+                        buf[3] = ' ';
+                        vector<string> filename_parts = split_file(bow_filename, '_');
+                        int group = 0;
+                        stringstream(filename_parts[2].substr(filename_parts[2].length()- 2,2)) >> group;
+                        for(int i=0; i<NUMBER_OF_GROUPS; ++i)
+                            if(i == group-1)
+                                (*bow_rep.testing_files[i]).write(buf, size+1);
+                            else
+                                (*bow_rep.training_files[i]).write(buf, size+1);                                
+                        delete [] buf;
+					}
+				}
+			}
+		}
+	}       
+    /*
+	// for each group, write the training and testing cross-validation files.
+	for (int i = 0; i < NUMBER_OF_GROUPS; ++i)
+	{
+		cout << "number of training features: " << bow_training_crossvalidation_sets[i].size() << endl;
+		for (unsigned line = 0; line < bow_training_crossvalidation_sets[i].size(); ++line)
+		{
+			try
+			{
+				*training_files[i] << bow_training_crossvalidation_sets[i][line] << endl;
+			}
+			catch (exception &e)
+			{
+				cout << "Error: " << e.what() << endl;
+				exit(1);
+			}
+		}
+		
+		cout << "number of testing features: " << bow_testing_crossvalidation_sets[i].size() << endl;
+		for (unsigned line = 0; line < bow_testing_crossvalidation_sets[i].size(); ++line)
+		{
+			try
+			{
+				*testing_files[i] << bow_testing_crossvalidation_sets[i][line] << endl;
+			}
+			catch (exception &e)
+			{
+				cout << "Error: " << e.what() << endl;
+				exit(1);
+			}
+		}
+	}
+    */
+	cout << "Finished writing to cross-validation files." << endl;
+
+	// close the libsvm training and testing files.
+	for (int i = 0; i < NUMBER_OF_GROUPS; ++i)
+	{
+		bow_rep.training_files[i]->close();
+		bow_rep.testing_files[i]->close();
+
+		delete bow_rep.training_files[i];
+		delete bow_rep.testing_files[i];
+	}
+
+	cout << "Closed all cross-validation files. " << endl;
+
+	bow_rep.training_files.clear();
+	bow_rep.testing_files.clear();
+    
 }
 
 void main(int argc, char *argv[])
@@ -1737,7 +1848,7 @@ void main(int argc, char *argv[])
         cout << "#clustering: " << (end1 - start1)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
         
         start1 = clock();
-        computeBOWRepresentation();
+        //computeBOWRepresentation();
         end1 = clock();
         cout << "#compute BOW: " << (end1 - start1)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
 
@@ -1794,6 +1905,12 @@ void main(int argc, char *argv[])
         start = clock();
         convert_bow();
         end = clock();
+    }
+    else if (state == BOW_TO_SVM)
+    {
+        start = clock();
+        bow_to_svm();
+        end = clock();        
     }
 	// TRECVID cases
 	else if (state == PICK_CLUSTERS)

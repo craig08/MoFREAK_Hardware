@@ -1396,6 +1396,9 @@ void MoFREAKUtilities::readMetadata(std::string filename, int &action, int &vide
 		// video number.. not sure if useful for this dataset.
 		std::stringstream(filename_parts[0]) >> video_number;
 	}
+    else {
+        person = action = video_number = 0;
+    }
 }
 
 void MoFREAKUtilities::readMoFREAKFeatures(std::string filename, int num_to_sample)
