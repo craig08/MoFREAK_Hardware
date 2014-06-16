@@ -45,8 +45,8 @@ enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognitio
 
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101, OUR};
 
-int dataset = UCF101; //KTH;//HMDB51;
-int state = RECOGNITION;
+int dataset = OUR; //KTH;//HMDB51;
+int state = TRAINING;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -127,7 +127,6 @@ void setParameters()
 		SVM_PATH = "D:/project/action/dataset/KTH/svm";
 		RECOG_PATH = "D:/project/action/dataset/KTH/recognition/";
 		RECOG_ONLINE_PATH = "D:/project/action/dataset/KTH/recognition_online/";
-        TRAINING_PATH = "D:/project/action/dataset/KTH/training/";
 		METADATA_PATH = "";
 	}
 
@@ -181,6 +180,12 @@ void setParameters()
 		VIDEO_PATH = "C:/data/UTI/segmented/videos/";
 		SVM_PATH = "C:/data/UTI/segmented/svm/";
 	}
+    else {
+        MOFREAK_PATH = "D:/project/action/dataset/our/mofreak";
+        SVM_PATH = "D:/project/action/dataset/our/svm";
+        TRAINING_PATH = "D:/project/action/dataset/our/svm";
+        VIDEO_PATH = "D:/project/action/dataset/our/video";
+    }
 }
 
 // cluster MoFREAK points to select codewords for a bag-of-words representation.
@@ -1061,7 +1066,7 @@ void recognition_online(const char *video_file, const int delta_f, const int del
     
     // Initialize file path
     //SVM_PATH = TRAINING_PATH;
-    SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm/";
+    SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm";
     initialize_label();
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
@@ -1195,7 +1200,7 @@ void recognition_online(const char *video_file, const int delta_f, const int del
                 }
                 x[curr_bow.cols].index = -1;    
                 predict_label = svm_predict(model, x);
-                cout << "Frame Number: " << frame_num << " label: " << labels[predict_label] << endl;
+                cout << "Frame Number: " << frame_num << " label: " << labels[predict_label] << " keypoints: " << keypoints.size() <<  endl;
                 
                  
                 Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
@@ -1225,15 +1230,17 @@ void video_online() {
     const int GAP_FOR_FRAME_DIFFERENCE = 5;
     const int ACCUMULATIVE_LENGTH = 60;
     const int HISTOGRAM_STEP = 10;
+    int key;
     
     // Initialize file path
-    SVM_PATH = TRAINING_PATH;
+    SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm/";
+    //SVM_PATH = TRAINING_PATH;
     initialize_label();
     //string video_filename = path(video_file).filename().generic_string();
     //string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
     SVMInterface svm_guy;
-    string model_path = SVM_PATH + "/model.svm";    
+    string model_path = SVM_PATH + "/model_18.svm";    
     
     VideoCapture capture(0);
     if(!capture.isOpened()) {
@@ -1242,7 +1249,7 @@ void video_online() {
     }
     else {
         cout << "Camera Resolution: " << capture.get(CV_CAP_PROP_FRAME_WIDTH) << "x" << capture.get(CV_CAP_PROP_FRAME_HEIGHT) << endl;
-        cout << "Frame Format: " << capture.get(CV_CAP_PROP_FORMAT) << endl;
+        //cout << "Frame Format: " << capture.get(CV_CAP_PROP_FORMAT) << endl;
     }
     
     /*
@@ -1261,7 +1268,7 @@ void video_online() {
 	for (unsigned int i = 0; i < GAP_FOR_FRAME_DIFFERENCE; ++i)
 	{
 		capture >> prev_frame; // ignore first 'GAP_FOR_FRAME_DIFFERENCE' frames.  Read them in and carry on.
-		cv::cvtColor(prev_frame, prev_frame, CV_BGR2GRAY); //RGB?BGR?
+		CVT_RE(prev_frame); //RGB?BGR?
 		frame_queue.push(prev_frame.clone());
 	}
 	prev_frame = frame_queue.front();
@@ -1277,6 +1284,8 @@ void video_online() {
     svm_node *x = new svm_node[curr_bow.cols+1];  
     double predict_label = 0.0;
     int fps = 30;// capture.get(CV_CAP_PROP_FPS);
+    //SurfFeatureDetector *diff_detector = new SurfFeatureDetector(30);
+	BRISK *diff_detector = new BRISK(30); 
     
     while(true) {
         clock_t start = clock();
@@ -1284,12 +1293,11 @@ void video_online() {
         capture >> current_frame;
         if (current_frame.empty())	
             break;
-        cvtColor(current_frame ,current_frame, CV_BGR2GRAY);
+        CVT_RE(current_frame);
         Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
         absdiff(current_frame, prev_frame, diff_img);
         vector<KeyPoint> keypoints, diff_keypoints;
         Mat descriptors;
-        SurfFeatureDetector *diff_detector = new SurfFeatureDetector(30);
         diff_detector->detect(diff_img, keypoints);
         for(auto keypt = keypoints.begin(); keypt != keypoints.end();) {
             if(!mofreak->sufficientMotion(current_frame, prev_frame, keypt->pt.x, keypt->pt.y, keypt->size))
@@ -1375,8 +1383,7 @@ void video_online() {
                 }
                 x[curr_bow.cols].index = -1;    
                 predict_label = svm_predict(model, x);
-                cout << "Frame Number: " << frame_num << " label: " << labels[predict_label] << endl;
-                
+                cout << "Frame Number: " << frame_num << " label: " << labels[predict_label] << " keypoints: " << keypoints.size() << endl;
                  
                 Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
                 normalize(total_histogram, curr_bow, 0, hisImage.rows, NORM_MINMAX);
@@ -1391,17 +1398,18 @@ void video_online() {
         time_frame = clock()-start;
         //cout  << "frame #: " << frame_num << " frame time: " << time_frame << endl;
         if(1000/fps-time_frame > 0)
-            waitKey(1000/fps-time_frame);
+            key = waitKey(1000/fps-time_frame);
         else
-            waitKey(1);
+            key = waitKey(1);
+        if(key==27) break;
 	} 
+    delete diff_detector;
     delete [] x;
 }
 
 void training() {
-    //SVM_PATH = TRAINING_PATH;
-    string model_path = SVM_PATH + "model.svm";
-    string labels_path = SVM_PATH + "labels.txt";
+    string model_path = TRAINING_PATH + "/model.svm";
+    string labels_path = TRAINING_PATH + "/labels.txt";
     SVMInterface svm_guy;
     
     vector<string> actions;
@@ -1420,8 +1428,8 @@ void training() {
     
     computeMoFREAKFiles();
     cluster();
-    computeBOWRepresentation();
-    svm_guy.trainModel(SVM_PATH + "1.test", model_path);
+    //computeBOWRepresentation();
+    //svm_guy.trainModel(SVM_PATH + "/1.test", model_path);
 }
 
 void histogram_param(const int delta_f, const int delta_h) {

@@ -1397,7 +1397,7 @@ void MoFREAKUtilities::readMetadata(std::string filename, int &action, int &vide
 		std::stringstream(filename_parts[0]) >> video_number;
 	}
     else {
-        person = action = video_number = 0;
+        person = video_number = 0;
     }
 }
 
