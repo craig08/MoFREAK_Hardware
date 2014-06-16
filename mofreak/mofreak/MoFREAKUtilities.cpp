@@ -1397,7 +1397,8 @@ void MoFREAKUtilities::readMetadata(std::string filename, int &action, int &vide
 		std::stringstream(filename_parts[0]) >> video_number;
 	}
     else {
-        person = video_number = 0;
+        person = video_number = 1;
+        action = labels[file_path.parent_path().filename().generic_string()];
     }
 }
 
@@ -1407,6 +1408,7 @@ void MoFREAKUtilities::readMoFREAKFeatures(std::string filename, int num_to_samp
 
 	int action, video_number, person;
 	readMetadata(filename, action, video_number, person);
+    cout << "action: " << action << endl;
 
 	ifstream stream;
 	stream.open(filename);
@@ -1505,3 +1507,8 @@ MoFREAKUtilities::~MoFREAKUtilities()
 	features.clear();
 }
 */
+
+void MoFREAKUtilities::set_labels(const vector<string> &l) {
+    for(int i=1; i<l.size(); ++i)
+        labels[l[i]] = i;
+}

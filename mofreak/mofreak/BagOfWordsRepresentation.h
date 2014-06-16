@@ -39,7 +39,7 @@ public:
 
 //private:
 	void computeHMDB51BagOfWords(string SVM_PATH, string MOFREAK_PATH, string METADATA_PATH);
-	void extractMetadata(std::string filename, int &action, int &group, int &clip_number);
+	void extractMetadata(boost::filesystem::path file_path, int &action, int &group, int &clip_number);
 	void loadClusters();
 
 
@@ -86,5 +86,6 @@ public:
 
 	int dataset;
 	enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
+    unordered_map<string, int> labels;
 };
 #endif

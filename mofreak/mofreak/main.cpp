@@ -59,6 +59,9 @@ void initialize_label() {
     labels.push_back("");
     while(fin >> action)
         labels.push_back(action);
+    mofreak->set_labels(labels);
+    for (unsigned i = 0; i < NUM_CLASSES; ++i)
+			possible_classes.push_back(i);
 }
 
 void CVT_RE(Mat &input) {
@@ -1065,14 +1068,14 @@ void recognition_online(const char *video_file, const int delta_f, const int del
     //const int HISTOGRAM_STEP = 10;
     
     // Initialize file path
-    //SVM_PATH = TRAINING_PATH;
-    SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm";
+    SVM_PATH = TRAINING_PATH;
+    //SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm";
     initialize_label();
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
     SVMInterface svm_guy;
-    string model_path = SVM_PATH + "/model_18.svm";
+    string model_path = SVM_PATH + "/model.svm";
     ofstream fout;
     
     VideoCapture capture;
@@ -1200,7 +1203,7 @@ void recognition_online(const char *video_file, const int delta_f, const int del
                 }
                 x[curr_bow.cols].index = -1;    
                 predict_label = svm_predict(model, x);
-                cout << "Frame Number: " << frame_num << " label: " << labels[predict_label] << " keypoints: " << keypoints.size() <<  endl;
+                cout << "Frame Number: " << frame_num << " label: " << labels[predict_label] << "  keypoints: " << keypoints.size() <<  endl;
                 
                  
                 Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
@@ -1422,14 +1425,15 @@ void training() {
     for(auto it=actions.begin(); it!=actions.end(); ++it)
         fout << endl << *it;
     fout.close();    
+    initialize_label();
 	NUM_CLUSTERS = actions.size()*100;
 	NUM_CLASSES = actions.size();
 	NUMBER_OF_GROUPS = 1;
     
     computeMoFREAKFiles();
     cluster();
-    //computeBOWRepresentation();
-    //svm_guy.trainModel(SVM_PATH + "/1.test", model_path);
+    computeBOWRepresentation();
+    svm_guy.trainModel(SVM_PATH + "/1.train", model_path);
 }
 
 void histogram_param(const int delta_f, const int delta_h) {

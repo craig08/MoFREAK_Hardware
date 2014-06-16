@@ -131,5 +131,7 @@ public:
 	int patternSizes[64];
     DescriptionPair newDesPairs[512];
     OrientationPair orientationPairs[45];
+    unordered_map<string, int> labels;
+    void set_labels(const vector<string> &l);
 };
 #endif

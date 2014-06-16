@@ -846,8 +846,9 @@ void BagOfWordsRepresentation::computeHMDB51BagOfWords(string SVM_PATH, string M
 	test3.close();
 }
 
-void BagOfWordsRepresentation::extractMetadata(std::string filename, int &action, int &group, int &clip_number)
+void BagOfWordsRepresentation::extractMetadata(boost::filesystem::path file_path, int &action, int &group, int &clip_number)
 {
+    string filename = file_path.filename().generic_string();
 	if (false)//dataset == KTH)
 	{
 		// get the action.
@@ -931,6 +932,10 @@ void BagOfWordsRepresentation::extractMetadata(std::string filename, int &action
 		std::string parsed_clip = filename_parts[3].substr(2, 2);
 		std::stringstream(parsed_clip) >> clip_number;
 	}
+    else {        
+        group = clip_number = 1;
+        action = labels[file_path.parent_path().filename().generic_string()];
+    }
 }
 
 void BagOfWordsRepresentation::intializeBOWMemory(string SVM_PATH)
@@ -969,7 +974,7 @@ void BagOfWordsRepresentation::convertFileToBOWFeature(std::string file)
 
 	// extract the metadata from this file, such as the group and action performed.
 	int action, group, video_number;
-	extractMetadata(file_name_str, action, group, video_number);
+	extractMetadata(file_path, action, group, video_number);
 
 	/*
 	Now, extract each mofreak features and assign them to the correct codeword.
@@ -1156,6 +1161,15 @@ BagOfWordsRepresentation::BagOfWordsRepresentation(int num_clust, int ftr_dim, s
 	appearance_descriptor_size = 8;
 	motion_is_binary = true;
 	appearance_is_binary = true;
+    ifstream fin(SVM_PATH+"/labels.txt");
+    if(!fin) return;    
+    int i;
+    fin >> i >> i >> i;
+    string action;
+    i = 0;
+    while(fin >> action)
+        labels[action] = i++;
+    fin.close();
 }
 
 BagOfWordsRepresentation::BagOfWordsRepresentation(std::vector<std::string> &file_list, 
