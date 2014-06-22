@@ -664,6 +664,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
                 ++keypt;
         }
         duration_suff += clock()-start_suff;
+        
 		// extract the FREAK descriptors efficiently over the whole frame
 		// For now, we are just computing the motion FREAK!  It seems to be giving better results.
 		//cv::FREAK extractor;
@@ -1408,7 +1409,6 @@ void MoFREAKUtilities::readMoFREAKFeatures(std::string filename, int num_to_samp
 
 	int action, video_number, person;
 	readMetadata(filename, action, video_number, person);
-    cout << "action: " << action << endl;
 
 	ifstream stream;
 	stream.open(filename);

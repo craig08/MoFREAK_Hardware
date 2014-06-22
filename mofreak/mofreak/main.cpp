@@ -31,6 +31,8 @@ string MOFREAK_NEG_PATH, MOFREAK_POS_PATH; // these are TRECVID exclusive
 vector<string> labels;
 Size newsize(320, 240);
 const bool down_sample = false;
+bool draw_histogram = true;
+bool play_video = true;
 
 unsigned int NUM_MOTION_BYTES = 8;
 unsigned int NUM_APPEARANCE_BYTES = 8;
@@ -45,8 +47,8 @@ enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognitio
 
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101, OUR};
 
-int dataset = OUR; //KTH;//HMDB51;
-int state = TRAINING;
+int dataset = KTH; //KTH;//HMDB51;
+int state = CLASSIFICATION;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -126,7 +128,7 @@ void setParameters()
 		// structural folder info.
 		MOSIFT_DIR = "C:/data/kth/mosift/";
 		MOFREAK_PATH = "D:/project/action/dataset/KTH/mofreak"; 
-		VIDEO_PATH = "D:/project/action/dataset/KTH/test";
+		VIDEO_PATH = "D:/project/action/dataset/KTH/original";
 		SVM_PATH = "D:/project/action/dataset/KTH/svm";
 		RECOG_PATH = "D:/project/action/dataset/KTH/recognition/";
 		RECOG_ONLINE_PATH = "D:/project/action/dataset/KTH/recognition_online/";
@@ -337,7 +339,7 @@ void computeBOWRepresentation()
 	std::vector<std::string> mofreak_files;
 	directory_iterator end_iter;
 
-#pragma omp parallel 
+//#pragma omp parallel 
 	{
 		for (directory_iterator dir_iter(MOFREAK_PATH); dir_iter != end_iter; ++dir_iter)
 		{
@@ -352,7 +354,7 @@ void computeBOWRepresentation()
 				{
 					if (is_regular_file(mofreak_iter->status()))
 					{
-#pragma omp single nowait
+//#pragma omp single nowait
 						{
 							convertFileToBOWFeature(bow_rep, mofreak_iter);
 						}
@@ -1108,12 +1110,15 @@ void recognition_online(const char *video_file, const int delta_f, const int del
     int fps = capture.get(CV_CAP_PROP_FPS);
     int action, person, video_number;
     int best_match;
+    clock_t start_frame, time_frame;
+    clock_t start_predict, time_predict;
+    int total_kps = 0;
     
 	BRISK *diff_detector = new BRISK(30); 
     //cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);    
+    start_predict = clock();
     while(true) {
-        clock_t start = clock();
-        clock_t time_frame;
+        start_frame = clock();
         capture >> current_frame;
         if (current_frame.empty())
             break;
@@ -1132,6 +1137,7 @@ void recognition_online(const char *video_file, const int delta_f, const int del
         mofreak->myFREAKcompute(diff_img, keypoints, descriptors);
 		unsigned char *pointer_to_descriptor_row = 0;
 		unsigned int keypoint_row = 0;
+        total_kps += keypoints.size();
 		for (auto keypt = keypoints.begin(); keypt != keypoints.end(); ++keypt)
 		{
 			pointer_to_descriptor_row = descriptors.ptr<unsigned char>(keypoint_row);
@@ -1203,25 +1209,30 @@ void recognition_online(const char *video_file, const int delta_f, const int del
                 }
                 x[curr_bow.cols].index = -1;    
                 predict_label = svm_predict(model, x);
-                cout << "Frame Number: " << frame_num << " label: " << labels[predict_label] << "  keypoints: " << keypoints.size() <<  endl;
+                time_predict = clock()-start_predict;
+                cout << "Frame Number: " << frame_num << " Label: " << labels[predict_label] << " Keypoints: " << total_kps << "   Time: " << (double)time_predict/CLOCKS_PER_SEC << endl;
+                start_predict = clock();
+                total_kps = 0;
                 
-                 
-                Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
-                normalize(total_histogram, curr_bow, 0, hisImage.rows, NORM_MINMAX);
-                
-                for( int i = 0; i < NUM_CLUSTERS; i++ )
-                    rectangle( hisImage, Point(i, hisImage.rows), Point((i+1), hisImage.rows - cvRound(curr_bow.at<float>(i))), Scalar::all(0), -1, 8, 0 );
-                imshow("histogram", hisImage);
+                if(draw_histogram) {
+                    Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
+                    normalize(total_histogram, curr_bow, 0, hisImage.rows, NORM_MINMAX);
+                    
+                    for( int i = 0; i < NUM_CLUSTERS; i++ )
+                        rectangle( hisImage, Point(i, hisImage.rows), Point((i+1), hisImage.rows - cvRound(curr_bow.at<float>(i))), Scalar::all(0), -1, 8, 0 );
+                    imshow("histogram", hisImage);
+                }
             }
         }
-        putText(current_frame, labels[predict_label], cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
-        imshow("Test Video", current_frame);
-        time_frame = clock()-start;
-        //cout  << "frame #: " << frame_num << " frame time: " << time_frame << endl;
-        if(1000/fps-time_frame > 0)
-            waitKey(1000/fps-time_frame);
-        else
-            waitKey(1);
+        time_frame = clock()-start_frame;
+        if(play_video) {
+            putText(current_frame, labels[predict_label], cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
+            imshow("Test Video", current_frame);
+            if(1000/fps-time_frame > 0)
+                waitKey(1000/fps-time_frame);
+            else
+                waitKey(1);
+        }
 	} 
     delete [] x;
     delete diff_detector;
@@ -1855,12 +1866,12 @@ void main(int argc, char *argv[])
 	}
     else if (state == CLASSIFICATION) {
         clock_t start1 = clock();
-        //cluster();
+        cluster();
         clock_t end1 = clock();
         cout << "#clustering: " << (end1 - start1)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
         
         start1 = clock();
-        //computeBOWRepresentation();
+        computeBOWRepresentation();
         end1 = clock();
         cout << "#compute BOW: " << (end1 - start1)/(double)CLOCKS_PER_SEC << " seconds! " << endl << endl;
 
@@ -1882,11 +1893,13 @@ void main(int argc, char *argv[])
     }
     else if (state == RECOGNITION_ONLINE)
     {
-		start = clock();
-        if(argc != 4) {
-            cout << "Usage: " << argv[0] << " your_video_file delta_h delta_f " << endl;
+        if(argc < 4 || argc > 6) {
+            cout << "Usage: " << argv[0] << " your_video_file delta_h delta_f [draw_histogram=1] [play_video=1]" << endl;
             return;
         }
+        if(argc > 4 && atoi(argv[4])==0) draw_histogram = false;
+        if(argc > 5 && atoi(argv[5])==0) play_video = false;
+		start = clock();
         recognition_online(argv[1], atoi(argv[2]), atoi(argv[3]));
 		end = clock();
     }
