@@ -33,6 +33,12 @@ Size newsize(320, 240);
 const bool down_sample = false;
 bool draw_histogram = true;
 bool play_video = true;
+struct Interval {
+    int start, end;
+    string act;
+    Interval(int s, int e, string a) : start(s), end(e), act(a) {}
+};
+vector<Interval> anno;
 
 unsigned int NUM_MOTION_BYTES = 8;
 unsigned int NUM_APPEARANCE_BYTES = 8;
@@ -47,8 +53,8 @@ enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognitio
 
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101, OUR};
 
-int dataset = KTH; //KTH;//HMDB51;
-int state = CLASSIFICATION;
+int dataset = OUR; //KTH;//HMDB51;
+int state = RECOGNITION_ONLINE;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -58,12 +64,29 @@ void initialize_label() {
     int clusters, classes, groups;
     fin >> NUM_CLUSTERS >> NUM_CLASSES >> NUMBER_OF_GROUPS;
     string action;
-    labels.push_back("");
+    labels.push_back("Unknown");
     while(fin >> action)
         labels.push_back(action);
     mofreak->set_labels(labels);
     for (unsigned i = 0; i < NUM_CLASSES; ++i)
 			possible_classes.push_back(i);
+    fin.close();
+    fin.open(SVM_PATH+"/annotation.txt");
+    int s, e;
+    while(!fin.eof()) {
+        fin >> s >> e >> action;
+        anno.push_back(Interval(s,e,action));
+    }
+    fin.close();
+}
+
+string golden(int frame_num) {
+    if(anno.empty()) 
+        cout << "No annotation!" << endl;
+    for(int i=0; i<anno.size(); ++i)
+        if(frame_num >= anno[i].start && frame_num <= anno[i].end)
+            return anno[i].act;
+    return "Unknown";
 }
 
 void CVT_RE(Mat &input) {
@@ -186,10 +209,10 @@ void setParameters()
 		SVM_PATH = "C:/data/UTI/segmented/svm/";
 	}
     else {
-        MOFREAK_PATH = "D:/project/action/dataset/our/mofreak";
-        SVM_PATH = "D:/project/action/dataset/our/svm";
-        TRAINING_PATH = "D:/project/action/dataset/our/svm";
-        VIDEO_PATH = "D:/project/action/dataset/our/video";
+        MOFREAK_PATH = "D:/project/action/dataset/our2/mofreak";
+        SVM_PATH = "D:/project/action/dataset/our2/svm";
+        TRAINING_PATH = "D:/project/action/dataset/our2/svm";
+        VIDEO_PATH = "D:/project/action/dataset/our2/video";
     }
 }
 
@@ -339,7 +362,7 @@ void computeBOWRepresentation()
 	std::vector<std::string> mofreak_files;
 	directory_iterator end_iter;
 
-//#pragma omp parallel 
+#pragma omp parallel 
 	{
 		for (directory_iterator dir_iter(MOFREAK_PATH); dir_iter != end_iter; ++dir_iter)
 		{
@@ -354,7 +377,7 @@ void computeBOWRepresentation()
 				{
 					if (is_regular_file(mofreak_iter->status()))
 					{
-//#pragma omp single nowait
+#pragma omp single nowait
 						{
 							convertFileToBOWFeature(bow_rep, mofreak_iter);
 						}
@@ -1071,13 +1094,16 @@ void recognition_online(const char *video_file, const int delta_f, const int del
     
     // Initialize file path
     SVM_PATH = TRAINING_PATH;
-    //SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm";
+    string model_path = SVM_PATH + "/model.svm";
+    if(dataset == KTH) {
+        SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm";
+        model_path = SVM_PATH + "/model_18.svm";
+    }
     initialize_label();
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
     SVMInterface svm_guy;
-    string model_path = SVM_PATH + "/model.svm";
     ofstream fout;
     
     VideoCapture capture;
@@ -1113,6 +1139,8 @@ void recognition_online(const char *video_file, const int delta_f, const int del
     clock_t start_frame, time_frame;
     clock_t start_predict, time_predict;
     int total_kps = 0;
+    int total_accu = 0, accu = 0;
+    string true_act;
     
 	BRISK *diff_detector = new BRISK(30); 
     //cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);    
@@ -1210,9 +1238,13 @@ void recognition_online(const char *video_file, const int delta_f, const int del
                 x[curr_bow.cols].index = -1;    
                 predict_label = svm_predict(model, x);
                 time_predict = clock()-start_predict;
-                cout << "Frame Number: " << frame_num << " Label: " << labels[predict_label] << " Keypoints: " << total_kps << "   Time: " << (double)time_predict/CLOCKS_PER_SEC << endl;
+                if(keypoints.size() < 20) predict_label = 0;
+                true_act = golden(frame_num);
+                cout << "Frame Number: " << frame_num << " Label: " << labels[predict_label] << " Golden: " << true_act << "   Time: " << (double)time_predict/CLOCKS_PER_SEC << endl;
                 start_predict = clock();
                 total_kps = 0;
+                ++total_accu;
+                if(labels[predict_label] == true_act || true_act=="Unknown") ++accu;
                 
                 if(draw_histogram) {
                     Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
@@ -1226,7 +1258,8 @@ void recognition_online(const char *video_file, const int delta_f, const int del
         }
         time_frame = clock()-start_frame;
         if(play_video) {
-            putText(current_frame, labels[predict_label], cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
+            putText(current_frame, labels[predict_label], cvPoint(10,30), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,0,0), 2);
+            putText(current_frame, true_act, cvPoint(320,30), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,0,0), 2);
             imshow("Test Video", current_frame);
             if(1000/fps-time_frame > 0)
                 waitKey(1000/fps-time_frame);
@@ -1236,6 +1269,7 @@ void recognition_online(const char *video_file, const int delta_f, const int del
 	} 
     delete [] x;
     delete diff_detector;
+    cout << "Accuracy: " << (float)accu/total_accu << endl;
 }
 
 void video_online() {
