@@ -54,7 +54,7 @@ enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognitio
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101, OUR};
 
 int dataset = OUR; //KTH;//HMDB51;
-int state = VIDEO_ONLINE;
+int state = RECOGNITION_ONLINE;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -72,8 +72,15 @@ void initialize_label() {
 			possible_classes.push_back(i);
     fin.close();
     cout << "Load labels." << endl;
-    fin.open(SVM_PATH+"/annotation.txt");
+}
+void initialize_anno(const char *video_file) {
+    ifstream fin;
+    string video_path = path(video_file).generic_string();
+    string anno_file = video_path.substr(0, video_path.size()-4)+"_anno.txt";
+    fin.open(anno_file);
+    if(!fin) cout << "No annotations!!" << endl;
     int s, e;
+    string action;
     while(!fin.eof()) {
         fin >> s >> e >> action;
         anno.push_back(Interval(s,e,action));
@@ -211,10 +218,10 @@ void setParameters()
 		SVM_PATH = "C:/data/UTI/segmented/svm/";
 	}
     else {
-        MOFREAK_PATH = "D:/project/action/dataset/our2/mofreak";
-        SVM_PATH = "D:/project/action/dataset/our2/svm";
-        TRAINING_PATH = "D:/project/action/dataset/our2/svm";
-        VIDEO_PATH = "D:/project/action/dataset/our2/video";
+        MOFREAK_PATH = "D:/project/action/dataset/our3/mofreak";
+        SVM_PATH = "D:/project/action/dataset/our3/svm";
+        TRAINING_PATH = "D:/project/action/dataset/our3/svm";
+        VIDEO_PATH = "D:/project/action/dataset/our3/video";
     }
 }
 
@@ -1096,6 +1103,7 @@ void recognition_online(const char *video_file, const int delta_f, const int del
     //SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm";
     //string model_path = SVM_PATH + "/model_18.svm";
     initialize_label();
+    initialize_anno(video_file);
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
