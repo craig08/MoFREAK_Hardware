@@ -54,7 +54,7 @@ enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognitio
 enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101, OUR};
 
 int dataset = OUR; //KTH;//HMDB51;
-int state = RECOGNITION_ONLINE;
+int state = VIDEO_ONLINE;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -71,6 +71,7 @@ void initialize_label() {
     for (unsigned i = 0; i < NUM_CLASSES; ++i)
 			possible_classes.push_back(i);
     fin.close();
+    cout << "Load labels." << endl;
     fin.open(SVM_PATH+"/annotation.txt");
     int s, e;
     while(!fin.eof()) {
@@ -78,6 +79,7 @@ void initialize_label() {
         anno.push_back(Interval(s,e,action));
     }
     fin.close();
+    cout << "Load annotations." << endl;
 }
 
 string golden(int frame_num) {
@@ -1086,19 +1088,13 @@ void recognition(const char *video_file) {
 }
 
 void recognition_online(const char *video_file, const int delta_f, const int delta_h) {
-    //clock_t start = clock();
-    //clock_t time_mofreak, time_BOW, time_predict;
-    const int GAP_FOR_FRAME_DIFFERENCE = 5;
-    //const int ACCUMULATIVE_LENGTH = 60;
-    //const int HISTOGRAM_STEP = 10;
-    
+    const int GAP_FOR_FRAME_DIFFERENCE = 5;    
+    int key;
     // Initialize file path
     SVM_PATH = TRAINING_PATH;
     string model_path = SVM_PATH + "/model.svm";
-    if(dataset == KTH) {
-        SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm";
-        model_path = SVM_PATH + "/model_18.svm";
-    }
+    //SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm";
+    //string model_path = SVM_PATH + "/model_18.svm";
     initialize_label();
     string video_filename = path(video_file).filename().generic_string();
     string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
@@ -1113,6 +1109,7 @@ void recognition_online(const char *video_file, const int delta_f, const int del
     
     Mat current_frame;
     Mat prev_frame;
+    Mat original_frame;
     queue<Mat> frame_queue;
     int queue_num = 1;
 	for (unsigned int i = 0; i < GAP_FOR_FRAME_DIFFERENCE; ++i)
@@ -1140,7 +1137,7 @@ void recognition_online(const char *video_file, const int delta_f, const int del
     clock_t start_predict, time_predict;
     int total_kps = 0;
     int total_accu = 0, accu = 0;
-    string true_act;
+    string true_act = "Unknown";
     
 	BRISK *diff_detector = new BRISK(30); 
     //cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);    
@@ -1150,6 +1147,7 @@ void recognition_online(const char *video_file, const int delta_f, const int del
         capture >> current_frame;
         if (current_frame.empty())
             break;
+        original_frame = current_frame;
         CVT_RE(current_frame);
         Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
         absdiff(current_frame, prev_frame, diff_img);
@@ -1223,48 +1221,55 @@ void recognition_online(const char *video_file, const int delta_f, const int del
                 total_histogram.at<float>(0, i) -= temp.at<float>(0, i);
                 total_N -= (int)temp.at<float>(0, i);
             }
-            ++queue_num;
-            if(queue_num > delta_f) {
-                queue_num = 1;
-                for(int i=0; i<NUM_CLUSTERS; ++i)
-                    curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;
-                // Compute BOW from MoFREAK and save .bow file
-                // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep                                 
-                for (int col = 0; col < curr_bow.cols; ++col)
-                {
-                    x[col].index = col+1;
-                    x[col].value = (double)curr_bow.at<float>(0, col);
-                }
-                x[curr_bow.cols].index = -1;    
-                predict_label = svm_predict(model, x);
-                time_predict = clock()-start_predict;
-                if(keypoints.size() < 20) predict_label = 0;
-                true_act = golden(frame_num);
-                cout << "Frame Number: " << frame_num << " Label: " << labels[predict_label] << " Golden: " << true_act << "   Time: " << (double)time_predict/CLOCKS_PER_SEC << endl;
-                start_predict = clock();
-                total_kps = 0;
-                ++total_accu;
-                if(labels[predict_label] == true_act || true_act=="Unknown") ++accu;
+        }
+        ++queue_num;
+        if(queue_num > delta_f) {
+            queue_num = 1;
+            for(int i=0; i<NUM_CLUSTERS; ++i)
+                curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;
+            // Compute BOW from MoFREAK and save .bow file
+            // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep                                 
+            for (int col = 0; col < curr_bow.cols; ++col)
+            {
+                x[col].index = col+1;
+                x[col].value = (double)curr_bow.at<float>(0, col);
+            }
+            x[curr_bow.cols].index = -1;    
+            predict_label = svm_predict(model, x);
+            time_predict = clock()-start_predict;
+            true_act = golden(frame_num);
+            if(keypoints.size() < 20) {
+            //if(keypoints.empty()) { //for KTH
+                predict_label = 0; 
+                true_act = "Unknown";
+            }
+            cout << "Frame Number: " << frame_num << " Label: " << labels[predict_label] << " Golden: " << true_act << "   Time: " << (double)time_predict/CLOCKS_PER_SEC << endl;
+            start_predict = clock();
+            total_kps = 0;
+            ++total_accu;
+            if(labels[predict_label] == true_act) ++accu;
+            
+            if(draw_histogram) {
+                Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
+                normalize(total_histogram, curr_bow, 0, hisImage.rows, NORM_MINMAX);
                 
-                if(draw_histogram) {
-                    Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
-                    normalize(total_histogram, curr_bow, 0, hisImage.rows, NORM_MINMAX);
-                    
-                    for( int i = 0; i < NUM_CLUSTERS; i++ )
-                        rectangle( hisImage, Point(i, hisImage.rows), Point((i+1), hisImage.rows - cvRound(curr_bow.at<float>(i))), Scalar::all(0), -1, 8, 0 );
-                    imshow("histogram", hisImage);
-                }
+                for( int i = 0; i < NUM_CLUSTERS; i++ )
+                    rectangle( hisImage, Point(i, hisImage.rows), Point((i+1), hisImage.rows - cvRound(curr_bow.at<float>(i))), Scalar::all(0), -1, 8, 0 );
+                imshow("histogram", hisImage);
             }
         }
-        time_frame = clock()-start_frame;
         if(play_video) {
-            putText(current_frame, labels[predict_label], cvPoint(10,30), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,0,0), 2);
-            putText(current_frame, true_act, cvPoint(320,30), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,0,0), 2);
-            imshow("Test Video", current_frame);
-            if(1000/fps-time_frame > 0)
-                waitKey(1000/fps-time_frame);
+            if(labels[predict_label] == true_act)
+                putText(original_frame, labels[predict_label], cvPoint(10,30), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,0,0), 2);
             else
-                waitKey(1);
+                putText(original_frame, labels[predict_label], cvPoint(10,30), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,0,255), 2);
+            imshow("Test Video", original_frame);
+            time_frame = clock()-start_frame;
+            if(1000/fps-time_frame > 0)
+                key = waitKey(1000/fps-time_frame);
+            else
+                key = waitKey(1);
+            if(key==27) break;
         }
 	} 
     delete [] x;
@@ -1273,22 +1278,21 @@ void recognition_online(const char *video_file, const int delta_f, const int del
 }
 
 void video_online() {
-    //clock_t start = clock();
-    //clock_t time_mofreak, time_BOW, time_predict;
     const int GAP_FOR_FRAME_DIFFERENCE = 5;
-    const int ACCUMULATIVE_LENGTH = 60;
-    const int HISTOGRAM_STEP = 10;
+    const int delta_h = 60;
+    const int delta_f = 10;
     int key;
     
     // Initialize file path
-    SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm/";
-    //SVM_PATH = TRAINING_PATH;
+    //SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm/";
+    //string model_path = SVM_PATH + "/model_18.svm";  
+    SVM_PATH = TRAINING_PATH;
+    string model_path = SVM_PATH + "/model.svm";  
     initialize_label();
     //string video_filename = path(video_file).filename().generic_string();
     //string mofreak_path = RECOG_PATH + "/" + video_filename + ".mofreak";
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
-    SVMInterface svm_guy;
-    string model_path = SVM_PATH + "/model_18.svm";    
+    SVMInterface svm_guy;  
     
     VideoCapture capture(0);
     if(!capture.isOpened()) {
@@ -1298,19 +1302,10 @@ void video_online() {
     else {
         cout << "Camera Resolution: " << capture.get(CV_CAP_PROP_FRAME_WIDTH) << "x" << capture.get(CV_CAP_PROP_FRAME_HEIGHT) << endl;
         //cout << "Frame Format: " << capture.get(CV_CAP_PROP_FORMAT) << endl;
-    }
-    
-    /*
-    while(true) {
-        Mat frame;
-        capture >> frame;
-        imshow("Camera", frame);
-        if(waitKey(30) >= 0) break;
-    }
-    */
-    
+    }    
     Mat current_frame;
     Mat prev_frame;
+    Mat original_frame;
     queue<Mat> frame_queue;
     int queue_num = 1;
 	for (unsigned int i = 0; i < GAP_FOR_FRAME_DIFFERENCE; ++i)
@@ -1334,13 +1329,17 @@ void video_online() {
     int fps = 30;// capture.get(CV_CAP_PROP_FPS);
     //SurfFeatureDetector *diff_detector = new SurfFeatureDetector(30);
 	BRISK *diff_detector = new BRISK(30); 
+    string true_act = "Unknown";
+    clock_t start_frame, time_frame;
+    clock_t start_predict, time_predict;
+    start_predict = clock();
     
     while(true) {
-        clock_t start = clock();
-        clock_t time_frame;
+        start_frame = clock();
         capture >> current_frame;
         if (current_frame.empty())	
             break;
+        original_frame = current_frame;
         CVT_RE(current_frame);
         Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
         absdiff(current_frame, prev_frame, diff_img);
@@ -1356,8 +1355,6 @@ void video_online() {
         mofreak->myFREAKcompute(diff_img, keypoints, descriptors);
 		unsigned char *pointer_to_descriptor_row = 0;
 		unsigned int keypoint_row = 0;
-        //#pragma omp parallel
-        {
 		for (auto keypt = keypoints.begin(); keypt != keypoints.end(); ++keypt)
 		{
 			pointer_to_descriptor_row = descriptors.ptr<unsigned char>(keypoint_row);
@@ -1384,67 +1381,50 @@ void video_online() {
                 //ftr.motion[i] = motion_desc[i];
                 feature_vector.at<unsigned char>(0, mofreak->NUMBER_OF_BYTES_FOR_APPEARANCE+i) = motion_desc[i];
             }
-
-            //int action, person, video_number;
-            //mofreak->readMetadata(video_filename, action, video_number, person);
-            //
-            //ftr.action = action;
-            //ftr.video_number = video_number;
-            //ftr.person = person;
-            //
-            //ftr.motion_x = 0;
-            //ftr.motion_y = 0;
-
-            //mofreak->features.push_back(ftr);
-			keypoint_row++;
-            
+			keypoint_row++;            
             int best_match = bow_rep.bruteForceMatch(feature_vector);
             curr_histogram.at<float>(0, best_match) += 1;
             total_histogram.at<float>(0, best_match) += 1;
             total_N += 1;
         }
-        }        
 		frame_queue.push(current_frame.clone());
 		prev_frame = frame_queue.front();
 		frame_queue.pop();
 		++frame_num;
         histogram_queue.push(curr_histogram.clone());
         curr_histogram = Mat::zeros(1, NUM_CLUSTERS, CV_32FC1);
-        if(histogram_queue.size() > ACCUMULATIVE_LENGTH) {
+        if(histogram_queue.size() > delta_h) {
             Mat temp = histogram_queue.front();
             histogram_queue.pop();
             for(int i=0; i<NUM_CLUSTERS; ++i) {
                 total_histogram.at<float>(0, i) -= temp.at<float>(0, i);
                 total_N -= (int)temp.at<float>(0, i);
             }
-            ++queue_num;
-            if(queue_num > HISTOGRAM_STEP) {
-                queue_num = 1;
-                for(int i=0; i<NUM_CLUSTERS; ++i)
-                    curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;                        
-                // Compute BOW from MoFREAK and save .bow file
-                // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep                                 
-                for (int col = 0; col < curr_bow.cols; ++col)
-                {
-                    x[col].index = col+1;
-                    x[col].value = (double)curr_bow.at<float>(0, col);
-                }
-                x[curr_bow.cols].index = -1;    
-                predict_label = svm_predict(model, x);
-                cout << "Frame Number: " << frame_num << " label: " << labels[predict_label] << " keypoints: " << keypoints.size() << endl;
-                 
-                Mat hisImage = Mat::ones(256, NUM_CLUSTERS, CV_8U)*255;
-                normalize(total_histogram, curr_bow, 0, hisImage.rows, NORM_MINMAX);
-                
-                for( int i = 0; i < NUM_CLUSTERS; i++ )
-                    rectangle( hisImage, Point(i, hisImage.rows), Point((i+1), hisImage.rows - cvRound(curr_bow.at<float>(i))), Scalar::all(0), -1, 8, 0 );
-                imshow("histogram", hisImage);
-            }
         }
-        putText(current_frame, labels[predict_label], cvPoint(10,10), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
-        imshow("Test Video", current_frame);
-        time_frame = clock()-start;
-        //cout  << "frame #: " << frame_num << " frame time: " << time_frame << endl;
+        ++queue_num;
+        if(queue_num > delta_f) {
+            queue_num = 1;
+            for(int i=0; i<NUM_CLUSTERS; ++i)
+                curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;                        
+            // Compute BOW from MoFREAK and save .bow file
+            // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep                                 
+            for (int col = 0; col < curr_bow.cols; ++col)
+            {
+                x[col].index = col+1;
+                x[col].value = (double)curr_bow.at<float>(0, col);
+            }
+            x[curr_bow.cols].index = -1;    
+            predict_label = svm_predict(model, x);
+            time_predict = clock()-start_predict;
+            if(keypoints.size() < 20) 
+                predict_label = 0; 
+            cout << "Frame Number: " << frame_num << " Label: " << labels[predict_label] << "   Time: " << (double)time_predict/CLOCKS_PER_SEC << endl;
+            start_predict = clock();
+        }
+        flip(original_frame, original_frame, 1);
+        putText(original_frame, labels[predict_label], cvPoint(10,30), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,0,0), 2);
+        imshow("Test Video", original_frame);
+        time_frame = clock()-start_frame;
         if(1000/fps-time_frame > 0)
             key = waitKey(1000/fps-time_frame);
         else
@@ -1487,11 +1467,11 @@ void histogram_param(const int delta_f, const int delta_h) {
     // Initialize file path
     //SVM_PATH = TRAINING_PATH;
     SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm/";
+    string model_path = SVM_PATH + "/model_18.svm";
     initialize_label();
     string video_filename, video_action, action_video_path, video_file;
     BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);    
     SVMInterface svm_guy;
-    string model_path = SVM_PATH + "/model_18.svm";
     clock_t start, duration=0;
     svm_model *model = svm_load_model(model_path.c_str());
     
@@ -1624,22 +1604,22 @@ void histogram_param(const int delta_f, const int delta_h) {
                                 total_histogram.at<float>(0, i) -= temp.at<float>(0, i);
                                 total_N -= (int)temp.at<float>(0, i);
                             }
-                            ++queue_num;
-                            if(queue_num > delta_f) {
-                                queue_num = 1;
-                                for(int i=0; i<NUM_CLUSTERS; ++i)
-                                    curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;
-                                // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep                                 
-                                for (int col = 0; col < curr_bow.cols; ++col)
-                                {
-                                    x[col].index = col+1;
-                                    x[col].value = (double)curr_bow.at<float>(0, col);
-                                }
-                                x[curr_bow.cols].index = -1;    
-                                predict_label = svm_predict(model, x);
-                                total_label++;
-                                if((int)predict_label-1 == action) correct_label++;
+                        }
+                        ++queue_num;
+                        if(queue_num > delta_f) {
+                            queue_num = 1;
+                            for(int i=0; i<NUM_CLUSTERS; ++i)
+                                curr_bow.at<float>(0, i) = (float)total_histogram.at<float>(0, i) / total_N;
+                            // clusters.txt is specified in SVM_PATH/clusters.txt by initialization of bow_rep                                 
+                            for (int col = 0; col < curr_bow.cols; ++col)
+                            {
+                                x[col].index = col+1;
+                                x[col].value = (double)curr_bow.at<float>(0, col);
                             }
+                            x[curr_bow.cols].index = -1;    
+                            predict_label = svm_predict(model, x);
+                            total_label++;
+                            if((int)predict_label-1 == action || keypoints.empty()) correct_label++;
                         }
                     }          
                 }
