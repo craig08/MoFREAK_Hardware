@@ -69,7 +69,7 @@ void initialize_label() {
         labels.push_back(action);
     mofreak->set_labels(labels);
     for (unsigned i = 0; i < NUM_CLASSES; ++i)
-			possible_classes.push_back(i);
+		possible_classes.push_back(i);
     fin.close();
     cout << "Load labels." << endl;
 }
