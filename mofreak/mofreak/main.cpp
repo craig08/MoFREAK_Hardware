@@ -51,10 +51,10 @@ std::deque<MoFREAKFeature> mofreak_ftrs;
 enum states {DETECT_MOFREAK, DETECTION_TO_CLASSIFICATION, // standard recognition states
 	PICK_CLUSTERS, COMPUTE_BOW_HISTOGRAMS, DETECT, TRAIN, GET_SVM_RESPONSES, RECOGNITION, RECOGNITION_ONLINE, VIDEO_ONLINE, TRAINING, CLASSIFICATION, HISTOGRAM_PARAM, CONVERT_BOW, BOW_TO_SVM}; // these states are exclusive to TRECVID
 
-enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101, OUR};
+enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101, OUR, WEIZMANN};
 
-int dataset = OUR; //KTH;//HMDB51;
-int state = RECOGNITION_ONLINE;
+int dataset = WEIZMANN; //KTH;//HMDB51;
+int state = CLASSIFICATION;
 
 MoFREAKUtilities *mofreak;
 //SVMInterface svm_interface;
@@ -164,6 +164,28 @@ void setParameters()
 		SVM_PATH = "D:/project/action/dataset/KTH/svm";
 		RECOG_PATH = "D:/project/action/dataset/KTH/recognition/";
 		RECOG_ONLINE_PATH = "D:/project/action/dataset/KTH/recognition_online/";
+		METADATA_PATH = "";
+	}
+    
+    // WEIZMANN
+	else if (dataset == WEIZMANN)
+	{
+		NUM_CLUSTERS = 1000;
+		NUM_CLASSES = 10;
+		NUMBER_OF_GROUPS = 9;
+
+		for (unsigned i = 0; i < NUM_CLASSES; ++i)
+		{
+			possible_classes.push_back(i);
+		}
+
+		// structural folder info.
+		MOSIFT_DIR = "C:/data/kth/mosift/";
+		MOFREAK_PATH = "D:/project/action/dataset/Weizmann/mofreak"; 
+		VIDEO_PATH = "D:/project/action/dataset/Weizmann/converted";
+		SVM_PATH = "D:/project/action/dataset/Weizmann/svm";
+		RECOG_PATH = "D:/project/action/dataset/Weizmann/recognition";
+		RECOG_ONLINE_PATH = "D:/project/action/dataset/Weizmann/recognition_online";
 		METADATA_PATH = "";
 	}
 
@@ -361,7 +383,24 @@ void convertFileToBOWFeature(BagOfWordsRepresentation &bow_rep, directory_iterat
 }
 
 void computeBOWRepresentation()
-{
+{    
+    string labels_path = SVM_PATH + "/labels.txt";
+    
+    ifstream fin(labels_path);
+    if(!fin) {
+        vector<string> actions;
+        directory_iterator end_iter;
+        for (directory_iterator dir_iter(VIDEO_PATH); dir_iter != end_iter; ++dir_iter)
+            if(is_directory(dir_iter->status())) 
+                actions.push_back(dir_iter->path().filename().generic_string());
+        ofstream fout(labels_path);
+        fout << actions.size()*100 << " " << actions.size() << " " << "1";
+        for(auto it=actions.begin(); it!=actions.end(); ++it)
+            fout << endl << *it;
+        fout.close();  
+    }
+    fin.close();
+    
 	// initialize BOW representation
 	BagOfWordsRepresentation bow_rep(NUM_CLUSTERS, NUM_MOTION_BYTES + NUM_APPEARANCE_BYTES, SVM_PATH, NUMBER_OF_GROUPS, dataset);
 	bow_rep.intializeBOWMemory(SVM_PATH);
@@ -369,7 +408,7 @@ void computeBOWRepresentation()
 	// load mofreak files
 	std::cout << "Gathering MoFREAK files from " << MOFREAK_PATH << std::endl;
 	std::vector<std::string> mofreak_files;
-	directory_iterator end_iter;
+	directory_iterator end_iter; 
 
 #pragma omp parallel 
 	{
@@ -1098,10 +1137,10 @@ void recognition_online(const char *video_file, const int delta_f, const int del
     const int GAP_FOR_FRAME_DIFFERENCE = 5;    
     int key;
     // Initialize file path
-    SVM_PATH = TRAINING_PATH;
-    string model_path = SVM_PATH + "/model.svm";
-    //SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm";
-    //string model_path = SVM_PATH + "/model_18.svm";
+    //SVM_PATH = TRAINING_PATH;
+    //string model_path = SVM_PATH + "/model.svm";
+    SVM_PATH = "D:/project/action/dataset/KTH/saved/thesis/typical_BRISK30_85/svm";
+    string model_path = SVM_PATH + "/model_18.svm";
     initialize_label();
     initialize_anno(video_file);
     string video_filename = path(video_file).filename().generic_string();
@@ -1155,6 +1194,7 @@ void recognition_online(const char *video_file, const int delta_f, const int del
         capture >> current_frame;
         if (current_frame.empty())
             break;
+		++frame_num;
         original_frame = current_frame;
         CVT_RE(current_frame);
         Mat diff_img(current_frame.rows, current_frame.cols, CV_8U);
@@ -1219,7 +1259,6 @@ void recognition_online(const char *video_file, const int delta_f, const int del
 		frame_queue.push(current_frame.clone());
 		prev_frame = frame_queue.front();
 		frame_queue.pop();
-		++frame_num;
         histogram_queue.push(curr_histogram.clone());
         curr_histogram = Mat::zeros(1, NUM_CLUSTERS, CV_32FC1);
         if(histogram_queue.size() > delta_h) {
@@ -1855,7 +1894,7 @@ void main(int argc, char *argv[])
 			detectEvents();
 		}
 		
-		else if (dataset == KTH || dataset == UTI2 || dataset == UCF101)
+		else if (dataset == KTH || dataset == UTI2 || dataset == UCF101 || dataset == WEIZMANN)
 		{
 			clock_t start1 = clock();
 			cluster();

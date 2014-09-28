@@ -53,6 +53,10 @@ MoFREAKUtilities::MoFREAKUtilities(int dset)
     }
     fin.close();     
 	// end building pattern     
+    
+    string names[9] = {"daria", "denis", "eli", "ido", "ira", "lena", "lyova", "moshe", "shahar"};
+    for(int i=0; i<9; ++i)
+        WIEZMANN_NAME[names[i]] = i+1;
 }
 
 // vanilla string split operation.  Direct copy-paste from stack overflow
@@ -597,7 +601,7 @@ void MoFREAKUtilities::computeMoFREAKFromFile(std::string video_filename, std::s
 	}
 	prev_frame = frame_queue.front();
 	frame_queue.pop();
-
+    
 	unsigned int frame_num = GAP_FOR_FRAME_DIFFERENCE - 1;
 	BRISK *diff_detector = new BRISK(30); 
     //cv::SurfFeatureDetector *diff_detector = new cv::SurfFeatureDetector(30);
@@ -1374,6 +1378,64 @@ void MoFREAKUtilities::readMetadata(std::string filename, int &action, int &vide
 		std::stringstream(filename_parts[2].substr(filename_parts[2].length() - 1, 1)) >> video_number;
 	}
 
+	else if (dataset == WEIZMANN)
+	{
+		// get the action.
+		if (boost::contains(file_name_str, "bend"))
+		{
+			action = BEND;
+		}
+		else if (boost::contains(file_name_str, "jack"))
+		{
+			action = JACK;
+		}
+		else if (boost::contains(file_name_str, "jump"))
+		{
+			action = JUMP_W;
+		}
+		else if (boost::contains(file_name_str, "pjump"))
+		{
+			action = PJUMP;
+		}
+		else if (boost::contains(file_name_str, "run"))
+		{
+			action = RUN_W;
+		}
+		else if (boost::contains(file_name_str, "side"))
+		{
+			action = SIDE;
+		}
+		else if (boost::contains(file_name_str, "skip"))
+		{
+			action = SKIP;
+		}
+		else if (boost::contains(file_name_str, "walk"))
+		{
+			action = WALK_W;
+		}
+		else if (boost::contains(file_name_str, "wave1"))
+		{
+			action = WAVE1;
+		}
+		else if (boost::contains(file_name_str, "wave2"))
+		{
+			action = WAVE2;
+		}
+		else
+		{
+			action = BEND; // hopefully we never miss this?  Just giving a default value. 
+		}
+
+
+		// parse the filename...
+		std::vector<std::string> filename_parts = split(file_name_str, '_');
+
+		// the person is the last 2 characters of the first section of the filename.
+		person = WIEZMANN_NAME[filename_parts[0]];
+
+        video_number = (boost::contains(file_name_str, "_2")) ? 2 : 1;
+	}    
+    
 	else if (dataset == HMDB51)
 	{
 		video_number = 0;

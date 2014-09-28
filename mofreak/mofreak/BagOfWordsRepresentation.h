@@ -85,7 +85,8 @@ public:
 	vector<ofstream *> testing_files;
 
 	int dataset;
-	enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
+	enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101, OUR, WEIZMANN};
     unordered_map<string, int> labels;
+    unordered_map<string, int> WIEZMANN_NAME;
 };
 #endif

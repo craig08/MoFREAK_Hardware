@@ -932,6 +932,13 @@ void BagOfWordsRepresentation::extractMetadata(boost::filesystem::path file_path
 		std::string parsed_clip = filename_parts[3].substr(2, 2);
 		std::stringstream(parsed_clip) >> clip_number;
 	}
+    else if(dataset == WEIZMANN) {
+        vector<string> filename_partial = split(filename, '.');
+        vector<string> filename_parts = split(filename_partial[0], '_');
+        action = labels[filename_parts[1]];
+        group = WIEZMANN_NAME[filename_parts[0]]-1;
+        clip_number = (boost::contains(filename, "_2")) ? 2 : 1;
+    }
     else {        
         group = clip_number = 1;
         action = labels[file_path.parent_path().filename().generic_string()];
@@ -1170,6 +1177,11 @@ BagOfWordsRepresentation::BagOfWordsRepresentation(int num_clust, int ftr_dim, s
     while(fin >> action)
         labels[action] = i++;
     fin.close();
+    
+    
+    string names[9] = {"daria", "denis", "eli", "ido", "ira", "lena", "lyova", "moshe", "shahar"};
+    for(int i=0; i<9; ++i)
+        WIEZMANN_NAME[names[i]] = i+1;
 }
 
 BagOfWordsRepresentation::BagOfWordsRepresentation(std::vector<std::string> &file_list, 

@@ -125,7 +125,7 @@ public:
 	cv::Mat recent_frame;
 
 	int dataset;
-	enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101};
+	enum datasets {KTH, TRECVID, HOLLYWOOD, UTI1, UTI2, HMDB51, UCF101, OUR, WEIZMANN};
 	
 	vector<PatternPoint> patternLookup;
 	int patternSizes[64];
@@ -133,5 +133,6 @@ public:
     OrientationPair orientationPairs[45];
     unordered_map<string, int> labels;
     void set_labels(const vector<string> &l);
+    unordered_map<string, int> WIEZMANN_NAME;
 };
 #endif
