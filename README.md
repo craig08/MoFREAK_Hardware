@@ -18,6 +18,7 @@ Usage:
 -----------------
 First of all, the file path of dataset should be correctly created. An example for KTH dataset is like:
 
+```
 KTH ------ original ------ boxing
      |               |---- handclapping
      |               |---- handwaving
@@ -26,7 +27,8 @@ KTH ------ original ------ boxing
      |               |---- walking
      |---- mofreak  ------ (empty)
      |---- svm      ------ (empty)
-     
+```
+
 Then the file pathes in setParameters() should be modified to match above directories.
 
 Second, the file pathes in the constructor of MoFREAKUtilities (at the top of MoFREAKUtilities.cpp) should be modified to the absolute location of the project. There are total 4 files to be read in initially.
